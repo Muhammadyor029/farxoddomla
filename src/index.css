@@ -1,0 +1,156 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@layer base {
+  /* Night Mode (Default) — Pure SENTINEL AI Dark Charcoal (#141414 / #1A1A1A) & Vivid Green (#05EA00) */
+  :root,
+  [data-theme="night"] {
+    --hero-bg: 0 0% 8%;
+    --background: 0 0% 10%;
+    --card: 0 0% 12%;
+    --foreground: 0 0% 96%;
+    --primary: 119 99% 46%;
+    --primary-foreground: 0 0% 4%;
+    --emerald: 142 84% 42%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 119 99% 46%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84% 60%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 119 99% 46%;
+    --radius: 0.5rem;
+    --nav-button: 0 0% 18%;
+  }
+
+  /* Day Mode — Mineral-lit slate charcoal keeping SENTINEL neon green crisp */
+  [data-theme="day"] {
+    --hero-bg: 145 10% 13%;
+    --background: 145 10% 16%;
+    --card: 145 10% 19%;
+    --foreground: 0 0% 98%;
+    --primary: 119 99% 48%;
+    --primary-foreground: 0 0% 4%;
+    --emerald: 142 84% 45%;
+    --secondary: 145 8% 23%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 145 8% 25%;
+    --muted-foreground: 0 0% 75%;
+    --accent: 119 99% 48%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84% 62%;
+    --border: 145 10% 28%;
+    --input: 145 10% 28%;
+    --ring: 119 99% 48%;
+    --radius: 0.5rem;
+    --nav-button: 145 8% 24%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-hero-bg text-foreground font-sora antialiased transition-colors duration-500;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--hero-bg));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--emerald) / 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* Dedicated Professional Print System for Lessons, Slides, Quizzes, Scenarios & Reports */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 14mm 16mm 14mm;
+  }
+
+  :root,
+  [data-theme="night"],
+  [data-theme="day"] {
+    --hero-bg: 0 0% 100%;
+    --background: 0 0% 100%;
+    --card: 0 0% 98%;
+    --foreground: 0 0% 8%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 35%;
+    --border: 0 0% 82%;
+    --primary: 142 72% 28%;
+    --emerald: 155 72% 28%;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 11pt !important;
+    line-height: 1.45 !important;
+  }
+
+  header,
+  nav,
+  .no-print,
+  canvas {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-section {
+    break-inside: avoid;
+    border-color: #d4d4d8 !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    box-shadow: none !important;
+  }
+
+  .print-slide {
+    page-break-after: always;
+    break-after: page;
+    border: 1px solid #d4d4d8 !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    padding: 20px !important;
+    min-height: 170mm;
+  }
+}
