@@ -197,11 +197,11 @@ export function Navbar({ activeRoute, onNavigate, onOpenAuth }: NavbarProps) {
             onClick={toggleBackground3d}
             className={`hidden md:inline-flex w-10 h-10 rounded-lg items-center justify-center transition-colors cursor-pointer ${
               background3d
-                ? "bg-nav-button/80 text-muted-foreground hover:text-foreground"
-                : "bg-primary/20 text-primary border border-primary/40"
+                ? "bg-primary/20 text-primary border border-primary/40"
+                : "bg-nav-button/80 text-muted-foreground hover:text-foreground"
             }`}
-            title={background3d ? "Eko rejimga o'tish" : "3D dizaynni qaytarish"}
-            aria-label={background3d ? "Eko rejimga o'tish" : "3D dizaynni qaytarish"}
+            title={background3d ? "3D fon yoqilgan — eko rejimga o'tish" : "Eko rejim — 3D fonni yoqish"}
+            aria-label={background3d ? "3D fon yoqilgan — eko rejimga o'tish" : "Eko rejim — 3D fonni yoqish"}
           >
             {background3d ? <Sparkles className="w-4 h-4 text-primary" /> : <Leaf className="w-4 h-4 text-primary" />}
           </button>
@@ -306,7 +306,7 @@ export function Navbar({ activeRoute, onNavigate, onOpenAuth }: NavbarProps) {
             </Button>
             <Button size="sm" variant="secondary" onClick={toggleBackground3d} className="gap-1.5 text-xs flex-1">
               {background3d ? <Sparkles className="w-3.5 h-3.5 text-primary" /> : <Leaf className="w-3.5 h-3.5 text-primary" />}
-              {background3d ? "Eko rejim" : "3D fon"}
+              {background3d ? "3D fon" : "Eko rejim"}
             </Button>
           </div>
 

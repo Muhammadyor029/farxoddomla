@@ -3,7 +3,7 @@ import type { Application } from "@splinetool/runtime";
 import type { ThemeMode } from "../../shared/types";
 
 const Spline = React.lazy(() => import("@splinetool/react-spline"));
-const SPLINE_SCENE_URL = "https://prod.spline.design/Slk6b8kz3LRlKiyk/scene.splinecode";
+const SPLINE_SCENE_URL = "/assets/spline-scene.splinecode";
 
 function detectLowPowerDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -49,13 +49,7 @@ export function GlobalSplineBackdrop({
 }: GlobalSplineBackdropProps) {
   const isDay = theme === "day";
   const isLowPower = useMemo(() => detectLowPowerDevice(), []);
-  const prefersReducedMotion = useMemo(
-    () =>
-      typeof window !== "undefined" &&
-      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
-    []
-  );
-  const disableSpline = !background3d || reducedMotion || prefersReducedMotion;
+  const disableSpline = !background3d;
   const splineRef = useRef<Application | null>(null);
   const loadTimerRef = useRef<number | null>(null);
   const [mountSpline, setMountSpline] = useState(false);
