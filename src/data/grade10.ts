@@ -10,7 +10,7 @@ export const GRADE_10_INFO: GradeInfo = {
     "10-sinf o'quvchilari uchun inson huquqlari kafolatlari, Oila kodeksi, Fuqarolik kodeksi va Xalqaro huquq asoslarini o'rgatuvchi rasmiy darslik kursi.",
   textbookTitle: "Davlat va huquq asoslari. 10-sinf yangi darslik",
   textbookYear: "2023",
-  textbookAuthors: "H. Tuychiyeva, F. Abdulleyav va boshq.",
+  textbookAuthors: "H. Tuychiyeva, F. Abdullayev va boshq.",
   pdfPath: "/assets/aistudio/10-sinf_Davlat_va_huquq_asoslari._Yangi_darslik_kitob_2023_471aa751.pdf",
   totalPages: 128,
   chaptersCount: 4,

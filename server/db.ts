@@ -336,8 +336,8 @@ export function createDatabase(dbPath?: string): DatabaseSync {
   db.prepare("DELETE FROM assignments WHERE teacher_name LIKE '%Nargiza Ismatova%'").run();
   db.prepare("UPDATE users SET xp = 0, level = 1, streak_days = 0").run();
   db.prepare(
-    "UPDATE users SET full_name = ? WHERE full_name IN ('Nargiza Ismatova', 'Platforma Egasi')"
-  ).run("Farhodjon Abdulleyav");
+    "UPDATE users SET full_name = ? WHERE full_name IN ('Nargiza Ismatova', 'Platforma Egasi', 'Farhodjon Abdulleyav')"
+  ).run("Farhodjon Abdullayev");
 
   return db;
 }
