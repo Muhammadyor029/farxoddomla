@@ -19,7 +19,7 @@ import { GlossaryPage, LegislationPage, ScenariosPage } from "./pages/ReferenceP
 import { AdminPanelPage, StudentCabinetPage, TeacherCabinetPage } from "./pages/CabinetsPages";
 
 function HuquqOlamiShell() {
-  const { theme, reducedMotion, background3d } = useTheme();
+  const { theme, background3d } = useTheme();
   const [route, setRoute] = useState<RouteKey>("home");
   const [selectedGrade, setSelectedGrade] = useState<number>(8);
   const [selectedLessonId, setSelectedLessonId] = useState<number>(8001);
@@ -69,7 +69,6 @@ function HuquqOlamiShell() {
       <GlobalSplineBackdrop
         theme={theme}
         dimmed={route !== "home"}
-        reducedMotion={reducedMotion}
         background3d={background3d}
       />
 

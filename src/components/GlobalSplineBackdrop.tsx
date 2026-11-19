@@ -37,14 +37,12 @@ class SplineErrorBoundary extends Component<
 interface GlobalSplineBackdropProps {
   theme: ThemeMode;
   dimmed: boolean;
-  reducedMotion?: boolean;
   background3d?: boolean;
 }
 
 export function GlobalSplineBackdrop({
   theme,
   dimmed,
-  reducedMotion = false,
   background3d = true,
 }: GlobalSplineBackdropProps) {
   const isDay = theme === "day";
@@ -91,11 +89,7 @@ export function GlobalSplineBackdrop({
     const syncPlayback = () => {
       const app = splineRef.current;
       if (!app) return;
-      const shouldPause =
-        reducedMotion ||
-        document.hidden ||
-        scrolledPastHero ||
-        (isLowPower && dimmed);
+      const shouldPause = document.hidden || scrolledPastHero || (isLowPower && dimmed);
 
       try {
         if (shouldPause) {
@@ -111,7 +105,7 @@ export function GlobalSplineBackdrop({
     syncPlayback();
     document.addEventListener("visibilitychange", syncPlayback);
     return () => document.removeEventListener("visibilitychange", syncPlayback);
-  }, [dimmed, scrolledPastHero, isLowPower, reducedMotion]);
+  }, [dimmed, scrolledPastHero, isLowPower]);
 
   useEffect(
     () => () => {
@@ -122,7 +116,7 @@ export function GlobalSplineBackdrop({
 
   const handleSplineLoad = (app: Application) => {
     splineRef.current = app;
-    if (reducedMotion || document.hidden || scrolledPastHero || (isLowPower && dimmed)) {
+    if (document.hidden || scrolledPastHero || (isLowPower && dimmed)) {
       loadTimerRef.current = window.setTimeout(() => {
         try {
           if (splineRef.current && !splineRef.current.isStopped) {
@@ -151,7 +145,7 @@ export function GlobalSplineBackdrop({
               <Suspense fallback={<div className="w-full h-full bg-hero-bg" />}>
                 <Spline
                   scene={SPLINE_SCENE_URL}
-                  renderOnDemand={true}
+                  renderOnDemand={false}
                   onLoad={handleSplineLoad}
                   className="w-full h-full"
                 />
