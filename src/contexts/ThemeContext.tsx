@@ -8,11 +8,15 @@ interface ThemeContextValue {
   reducedMotion: boolean;
   toggleReducedMotion: () => void;
   setReducedMotion: (enabled: boolean) => void;
+  background3d: boolean;
+  toggleBackground3d: () => void;
+  setBackground3d: (enabled: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = "huquq_olami_theme";
 const MOTION_KEY = "huquq_olami_reduced_motion";
+const BACKGROUND_KEY = "huquq_olami_background_3d";
 
 export function resolveInitialReducedMotion(): boolean {
   try {
@@ -28,6 +32,22 @@ export function resolveInitialReducedMotion(): boolean {
   return false;
 }
 
+export function resolveInitialBackground3d(): boolean {
+  try {
+    const saved = localStorage.getItem(BACKGROUND_KEY);
+    if (saved === "true") return true;
+    if (saved === "false") return false;
+  } catch {
+    // ignore
+  }
+  if (typeof window === "undefined") return true;
+  const narrowScreen = window.innerWidth < 768;
+  const lowCores = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
+  const navMem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+  const lowMem = typeof navMem === "number" && navMem <= 4;
+  return !(narrowScreen || lowCores || lowMem || resolveInitialReducedMotion());
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     try {
@@ -40,6 +60,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [reducedMotion, setReducedMotionState] = useState<boolean>(() => resolveInitialReducedMotion());
+  const [background3d, setBackground3dState] = useState<boolean>(() => resolveInitialBackground3d());
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -59,14 +80,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [reducedMotion]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(BACKGROUND_KEY, background3d ? "true" : "false");
+    } catch {
+      // ignore
+    }
+  }, [background3d]);
+
   const setTheme = (mode: ThemeMode) => setThemeState(mode);
   const toggleTheme = () => setThemeState((prev) => (prev === "night" ? "day" : "night"));
   const setReducedMotion = (enabled: boolean) => setReducedMotionState(enabled);
   const toggleReducedMotion = () => setReducedMotionState((prev) => !prev);
+  const setBackground3d = (enabled: boolean) => setBackground3dState(enabled);
+  const toggleBackground3d = () => setBackground3dState((prev) => !prev);
 
   return (
     <ThemeContext.Provider
-      value={{ theme, toggleTheme, setTheme, reducedMotion, toggleReducedMotion, setReducedMotion }}
+      value={{
+        theme,
+        toggleTheme,
+        setTheme,
+        reducedMotion,
+        toggleReducedMotion,
+        setReducedMotion,
+        background3d,
+        toggleBackground3d,
+        setBackground3d,
+      }}
     >
       {children}
     </ThemeContext.Provider>

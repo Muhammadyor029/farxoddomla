@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, ChevronDown, LogOut, Sun, Moon, Menu, X, PauseCircle, PlayCircle } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Sun, Moon, Menu, X, PauseCircle, PlayCircle, Leaf, Sparkles } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -53,7 +53,7 @@ const OWNER_SECTIONS: Array<{ route: RouteKey; label: string; desc: string }> = 
 ];
 
 export function Navbar({ activeRoute, onNavigate, onOpenAuth }: NavbarProps) {
-  const { theme, toggleTheme, reducedMotion, toggleReducedMotion } = useTheme();
+  const { theme, toggleTheme, reducedMotion, toggleReducedMotion, background3d, toggleBackground3d } = useTheme();
   const { user, unlocked, logout } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -194,6 +194,20 @@ export function Navbar({ activeRoute, onNavigate, onOpenAuth }: NavbarProps) {
 
           <button
             type="button"
+            onClick={toggleBackground3d}
+            className={`hidden md:inline-flex w-10 h-10 rounded-lg items-center justify-center transition-colors cursor-pointer ${
+              background3d
+                ? "bg-nav-button/80 text-muted-foreground hover:text-foreground"
+                : "bg-primary/20 text-primary border border-primary/40"
+            }`}
+            title={background3d ? "Eko rejimga o'tish" : "3D dizaynni qaytarish"}
+            aria-label={background3d ? "Eko rejimga o'tish" : "3D dizaynni qaytarish"}
+          >
+            {background3d ? <Sparkles className="w-4 h-4 text-primary" /> : <Leaf className="w-4 h-4 text-primary" />}
+          </button>
+
+          <button
+            type="button"
             onClick={toggleTheme}
             className="hidden md:inline-flex w-10 h-10 rounded-lg bg-nav-button/80 items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title={theme === "night" ? "Kunduzgi rejim" : "Tungi rejim"}
@@ -289,6 +303,10 @@ export function Navbar({ activeRoute, onNavigate, onOpenAuth }: NavbarProps) {
             <Button size="sm" variant="secondary" onClick={toggleReducedMotion} className="gap-1.5 text-xs flex-1">
               {reducedMotion ? <PauseCircle className="w-3.5 h-3.5 text-primary" /> : <PlayCircle className="w-3.5 h-3.5" />}
               {reducedMotion ? "Harakat: Past" : "Harakat: Faol"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={toggleBackground3d} className="gap-1.5 text-xs flex-1">
+              {background3d ? <Sparkles className="w-3.5 h-3.5 text-primary" /> : <Leaf className="w-3.5 h-3.5 text-primary" />}
+              {background3d ? "Eko rejim" : "3D fon"}
             </Button>
           </div>
 

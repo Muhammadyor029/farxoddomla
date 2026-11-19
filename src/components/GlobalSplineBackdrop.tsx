@@ -38,22 +38,24 @@ interface GlobalSplineBackdropProps {
   theme: ThemeMode;
   dimmed: boolean;
   reducedMotion?: boolean;
+  background3d?: boolean;
 }
 
-export function GlobalSplineBackdrop({ theme, dimmed, reducedMotion = false }: GlobalSplineBackdropProps) {
+export function GlobalSplineBackdrop({
+  theme,
+  dimmed,
+  reducedMotion = false,
+  background3d = true,
+}: GlobalSplineBackdropProps) {
   const isDay = theme === "day";
   const isLowPower = useMemo(() => detectLowPowerDevice(), []);
-  const isSmallScreen = useMemo(
-    () => typeof window !== "undefined" && window.innerWidth < 768,
-    []
-  );
   const prefersReducedMotion = useMemo(
     () =>
       typeof window !== "undefined" &&
       Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
     []
   );
-  const disableSpline = isLowPower || isSmallScreen || reducedMotion || prefersReducedMotion;
+  const disableSpline = !background3d || reducedMotion || prefersReducedMotion;
   const splineRef = useRef<Application | null>(null);
   const loadTimerRef = useRef<number | null>(null);
   const [mountSpline, setMountSpline] = useState(false);
