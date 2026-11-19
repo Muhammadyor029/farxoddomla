@@ -317,5 +317,27 @@ export function createDatabase(dbPath?: string): DatabaseSync {
     );
   }
 
+  const legacyDemoEmails = [
+    "oquvchi@huquqolami.uz",
+    "dilnoza@huquqolami.uz",
+    "jasur@huquqolami.uz",
+  ];
+  const findLegacyUser = db.prepare("SELECT id FROM users WHERE LOWER(email) = ?");
+  const deleteLegacyQuizAttempts = db.prepare("DELETE FROM quiz_attempts WHERE user_id = ?");
+  const deleteLegacyGameAttempts = db.prepare("DELETE FROM game_attempts WHERE user_id = ?");
+  const deleteLegacyUser = db.prepare("DELETE FROM users WHERE id = ?");
+  for (const email of legacyDemoEmails) {
+    const row = findLegacyUser.get(email) as { id: number } | undefined;
+    if (!row) continue;
+    deleteLegacyQuizAttempts.run(row.id);
+    deleteLegacyGameAttempts.run(row.id);
+    deleteLegacyUser.run(row.id);
+  }
+  db.prepare("DELETE FROM assignments WHERE teacher_name LIKE '%Nargiza Ismatova%'").run();
+  db.prepare("UPDATE users SET xp = 0, level = 1, streak_days = 0").run();
+  db.prepare(
+    "UPDATE users SET full_name = ? WHERE full_name IN ('Nargiza Ismatova', 'Platforma Egasi')"
+  ).run("Farhodjon Abdulleyav");
+
   return db;
 }

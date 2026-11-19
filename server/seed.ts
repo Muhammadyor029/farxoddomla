@@ -59,8 +59,8 @@ export function ensureOwnerAccount(db: DatabaseSync): void {
   } else {
     const res = db
       .prepare(
-        `INSERT INTO users (email, password_hash, full_name, role, grade_number, class_name, school_name, xp, level, streak_days, token_version)
-         VALUES (?, ?, 'Platforma Egasi', 'admin', 11, 'Boshqaruv', 'Huquq Olami', 1650, 9, 12, 1)`
+         `INSERT INTO users (email, password_hash, full_name, role, grade_number, class_name, school_name, xp, level, streak_days, token_version)
+         VALUES (?, ?, 'Farhodjon Abdulleyav', 'admin', 11, 'Boshqaruv', 'Huquq Olami', 0, 1, 0, 1)`
       )
       .run(ownerLogin, ownerHash);
     ownerId = Number(res.lastInsertRowid);
