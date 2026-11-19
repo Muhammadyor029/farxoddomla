@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Presentation, Sparkles, FileCheck2, Gamepad2, ArrowRight, Lock } from "lucide-react";
 import type { GameDefinition, PresentationDeck, QuizInfo } from "../../shared/types";
 import { apiRequest } from "../lib/api";
@@ -6,8 +6,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { PresentationStudio } from "../components/presentations/PresentationStudio";
 import { AnimatedProcessDiagram, VisualDiagram } from "../components/diagrams/LegalDiagrams";
-import { LegalGamesArena } from "../components/games/LegalGamesArena";
 import { QuizRunner } from "../components/quizzes/QuizRunner";
+
+const LegalGamesArena = lazy(() =>
+  import("../components/games/LegalGamesArena").then((m) => ({ default: m.LegalGamesArena }))
+);
 
 /* ==================== PRESENTATIONS LIBRARY + STUDIO ==================== */
 export function PresentationsLibraryPage() {
@@ -260,12 +263,14 @@ export function GamesPage({ games }: { games: GameDefinition[] }) {
         </div>
       </div>
 
-      <LegalGamesArena
-        games={games}
-        gradeNumber={selectedGrade}
-        onGradeChange={setSelectedGrade}
-        onScoreSaved={refreshUser}
-      />
+      <Suspense fallback={<div className="min-h-[60vh]" />}>
+        <LegalGamesArena
+          games={games}
+          gradeNumber={selectedGrade}
+          onGradeChange={setSelectedGrade}
+          onScoreSaved={refreshUser}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -15,34 +15,52 @@ import {
   LEGISLATION_ARTICLES,
 } from "../src/data/glossaryAndLaws";
 
+const OWNER_EMAIL = "qonun";
+const LEGACY_OWNER_EMAIL = "fahodjon123";
+const OWNER_PASSWORD = "qonun1991";
+const OWNER_NAME = "Nargiza Ismatova";
+
 export function ensureOwnerAccount(db: DatabaseSync): void {
-  const ownerHash = bcrypt.hashSync("Fahodjon123", 8);
+  const ownerHash = bcrypt.hashSync(OWNER_PASSWORD, 8);
+  const legacyOwner = db
+    .prepare("SELECT id FROM users WHERE LOWER(email) = ?")
+    .get(LEGACY_OWNER_EMAIL) as { id: number } | undefined;
+
+  if (legacyOwner) {
+    const conflictingOwner = db
+      .prepare("SELECT id FROM users WHERE LOWER(email) = ? AND id != ?")
+      .get(OWNER_EMAIL, legacyOwner.id) as { id: number } | undefined;
+    if (conflictingOwner) {
+      db.prepare("UPDATE users SET email = ? WHERE id = ?").run(`qonun-${conflictingOwner.id}`, conflictingOwner.id);
+    }
+    db.prepare("UPDATE users SET email = ? WHERE id = ?").run(OWNER_EMAIL, legacyOwner.id);
+  }
+
   const existingOwner = db
-    .prepare("SELECT id FROM users WHERE LOWER(email) = 'fahodjon123'")
-    .get() as { id: number } | undefined;
+    .prepare("SELECT id FROM users WHERE LOWER(email) = ?")
+    .get(OWNER_EMAIL) as { id: number } | undefined;
 
   let ownerId: number;
   if (existingOwner) {
     ownerId = existingOwner.id;
     db.prepare(
       `UPDATE users
-       SET email = 'fahodjon123', password_hash = ?, full_name = 'Fahodjon', role = 'admin',
+       SET email = ?, password_hash = ?, full_name = ?, role = 'admin',
            grade_number = 11, class_name = 'Boshqaruv', school_name = 'Huquq Olami'
        WHERE id = ?`
-    ).run(ownerHash, ownerId);
+    ).run(OWNER_EMAIL, ownerHash, OWNER_NAME, ownerId);
   } else {
     const res = db
       .prepare(
         `INSERT INTO users (email, password_hash, full_name, role, grade_number, class_name, school_name, xp, level, streak_days)
-         VALUES ('fahodjon123', ?, 'Fahodjon', 'admin', 11, 'Boshqaruv', 'Huquq Olami', 1650, 9, 12)`
+         VALUES (?, ?, ?, 'admin', 11, 'Boshqaruv', 'Huquq Olami', 1650, 9, 12)`
       )
-      .run(ownerHash);
+      .run(OWNER_EMAIL, ownerHash, OWNER_NAME);
     ownerId = Number(res.lastInsertRowid);
   }
 
   db.prepare("INSERT OR IGNORE INTO teacher_profiles (user_id) VALUES (?)").run(ownerId);
-  // Ensure single-sided roles: every other account stays standard student
-  db.prepare("UPDATE users SET role = 'student' WHERE LOWER(email) != 'fahodjon123'").run();
+  db.prepare("UPDATE users SET role = 'student' WHERE LOWER(email) != ?").run(OWNER_EMAIL);
 }
 
 export function seedDatabase(db: DatabaseSync): void {
@@ -243,7 +261,7 @@ export function seedDatabase(db: DatabaseSync): void {
       VALUES (1, 'gemini-4-hydrogen', 'Sodda, darslikka asoslangan va hayotiy misollar bilan', 1, 1)
     `).run();
 
-    // Seed standard student leaderboard profiles + single master owner profile (Fahodjon123)
+    // Seed standard student leaderboard profiles + single master owner profile (qonun)
     const studentHash = bcrypt.hashSync("Student123!", 8);
 
     const insertUser = db.prepare(`
@@ -293,7 +311,7 @@ export function seedDatabase(db: DatabaseSync): void {
     db.prepare("INSERT INTO student_profiles (user_id, grade_number) VALUES (?, ?)").run(Number(student3Res.lastInsertRowid), 11);
 
     ensureOwnerAccount(db);
-    const ownerRow = db.prepare("SELECT id FROM users WHERE LOWER(email) = 'fahodjon123'").get() as { id: number };
+    const ownerRow = db.prepare("SELECT id FROM users WHERE LOWER(email) = ?").get(OWNER_EMAIL) as { id: number };
 
     const demoStudentId = Number(studentRes.lastInsertRowid);
     const demoTeacherId = ownerRow.id;
@@ -336,7 +354,7 @@ export function seedDatabase(db: DatabaseSync): void {
       8020,
       "2026-05-25",
       demoTeacherId,
-      "Nargiza Ismatova (Ustoz)"
+      "Nargiza Ismatova"
     );
     insertAssignment.run(
       "9-sinf: Yangi tahrirdagi Konstitutsiyada inson huquqlari",
@@ -345,7 +363,7 @@ export function seedDatabase(db: DatabaseSync): void {
       9013,
       "2026-05-22",
       demoTeacherId,
-      "Nargiza Ismatova (Ustoz)"
+      "Nargiza Ismatova"
     );
     insertAssignment.run(
       "10-sinf: Iste'molchi huquqlarini himoya qilish",
@@ -354,7 +372,7 @@ export function seedDatabase(db: DatabaseSync): void {
       10012,
       "2026-05-28",
       demoTeacherId,
-      "Nargiza Ismatova (Ustoz)"
+      "Nargiza Ismatova"
     );
     insertAssignment.run(
       "11-sinf: Mehnat shartnomasi va Ekologik javobgarlik",
@@ -363,7 +381,7 @@ export function seedDatabase(db: DatabaseSync): void {
       11003,
       "2026-05-30",
       demoTeacherId,
-      "Nargiza Ismatova (Ustoz)"
+      "Nargiza Ismatova"
     );
 
     db.exec("COMMIT;");

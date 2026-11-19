@@ -54,7 +54,7 @@ describe("HUQUQ OLAMI Express + SQLite API integration", () => {
     expect(grades.data.grades.map((g) => g.gradeNumber)).toEqual([8, 9, 10, 11]);
   });
 
-  it("authenticates Fahodjon123 owner account, enforces single-sided registration, and locks topics for others", async () => {
+  it("authenticates qonun owner account, enforces single-sided registration, and locks topics for others", async () => {
     // Unauthenticated protected route fails with 401
     const unauth = await apiJson("/api/student/dashboard");
     expect(unauth.status).toBe(401);
@@ -96,10 +96,10 @@ describe("HUQUQ OLAMI Express + SQLite API integration", () => {
     const regLessonDetail = await apiJson("/api/lessons/9001", { token: regToken });
     expect(regLessonDetail.status).toBe(403);
 
-    // Master profile Fahodjon123 / Fahodjon123 unlocks everything
+    // Master profile qonun / qonun1991 unlocks everything
     const ownerLogin = await apiJson<{ token: string; user: { email: string; role: string } }>("/api/auth/login", {
       method: "POST",
-      body: { email: "Fahodjon123", password: "Fahodjon123" },
+      body: { email: "qonun", password: "qonun1991" },
     });
     expect(ownerLogin.status).toBe(200);
     expect(ownerLogin.data.user.role).toBe("admin");
@@ -154,7 +154,7 @@ describe("HUQUQ OLAMI Express + SQLite API integration", () => {
   it("persists presentation edits to SQLite and reflects them on GET", async () => {
     const ownerLogin = await apiJson<{ token: string }>("/api/auth/login", {
       method: "POST",
-      body: { email: "Fahodjon123", password: "Fahodjon123" },
+      body: { email: "qonun", password: "qonun1991" },
     });
     const token = ownerLogin.data.token;
 
@@ -197,10 +197,10 @@ describe("HUQUQ OLAMI Express + SQLite API integration", () => {
     expect(deckAfter.data.presentation.slides.length).toBe(updatedSlides.length);
   });
 
-  it("supports Fahodjon123 full lesson/assignment creation, student submission & AI setting updates", async () => {
+  it("supports qonun full lesson/assignment creation, student submission & AI setting updates", async () => {
     const ownerLogin = await apiJson<{ token: string }>("/api/auth/login", {
       method: "POST",
-      body: { email: "Fahodjon123", password: "Fahodjon123" },
+      body: { email: "qonun", password: "qonun1991" },
     });
     const ownerToken = ownerLogin.data.token;
 

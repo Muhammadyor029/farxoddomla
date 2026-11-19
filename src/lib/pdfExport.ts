@@ -1,4 +1,3 @@
-import { jsPDF } from "jspdf";
 import type {
   LegalScenario,
   LegalTerm,
@@ -17,12 +16,13 @@ interface PdfSectionBlock {
  * Renders structured Uzbek text onto high-DPI offscreen canvases and compiles a clean multi-page PDF.
  * This guarantees crisp rendering of all Uzbek Latin apostrophes (o‘, g‘, ’) without font glyph errors.
  */
-export function exportDocumentAsPdf(params: {
+export async function exportDocumentAsPdf(params: {
   filename: string;
   docTitle: string;
   docSubtitle: string;
   blocks: PdfSectionBlock[];
 }) {
+  const { jsPDF } = await import("jspdf");
   const pageWidthPx = 1240;
   const pageHeightPx = 1754; // A4 ratio at 150 DPI
   const marginX = 84;
@@ -158,9 +158,9 @@ export function exportDocumentAsPdf(params: {
   pdf.save(params.filename.endsWith(".pdf") ? params.filename : `${params.filename}.pdf`);
 }
 
-export function exportLessonPdf(lesson: LessonInfo) {
+export async function exportLessonPdf(lesson: LessonInfo) {
   const c = lesson.content;
-  exportDocumentAsPdf({
+  await exportDocumentAsPdf({
     filename: `huquq-olami-${lesson.gradeNumber}-sinf-${lesson.id}`,
     docTitle: c.title,
     docSubtitle: `${lesson.gradeNumber}-sinf · ${lesson.chapterTitle} · ${lesson.pageNumber}-bet`,
@@ -188,8 +188,8 @@ export function exportLessonPdf(lesson: LessonInfo) {
   });
 }
 
-export function exportPresentationPdf(deck: PresentationDeck) {
-  exportDocumentAsPdf({
+export async function exportPresentationPdf(deck: PresentationDeck) {
+  await exportDocumentAsPdf({
     filename: `prezentatsiya-${deck.gradeNumber}-sinf-${deck.id}`,
     docTitle: deck.title,
     docSubtitle: `${deck.gradeNumber}-sinf · ${deck.slides.length} ta slayd · ${deck.templateName}`,
@@ -206,8 +206,8 @@ export function exportPresentationPdf(deck: PresentationDeck) {
   });
 }
 
-export function exportQuizPdf(quiz: QuizInfo, includeAnswers: boolean) {
-  exportDocumentAsPdf({
+export async function exportQuizPdf(quiz: QuizInfo, includeAnswers: boolean) {
+  await exportDocumentAsPdf({
     filename: `test-${quiz.gradeNumber}-sinf-${quiz.id}`,
     docTitle: quiz.title,
     docSubtitle: `${quiz.gradeNumber}-sinf · ${quiz.questions.length} ta savol · Vaqt: ${quiz.timeLimitMinutes} daqiqa`,
@@ -224,8 +224,8 @@ export function exportQuizPdf(quiz: QuizInfo, includeAnswers: boolean) {
   });
 }
 
-export function exportScenariosPdf(scenarios: LegalScenario[]) {
-  exportDocumentAsPdf({
+export async function exportScenariosPdf(scenarios: LegalScenario[]) {
+  await exportDocumentAsPdf({
     filename: "amaliy-vaziyatlar-toplami",
     docTitle: "Amaliy huquqiy vaziyatlar to'plami",
     docSubtitle: "8–11-sinflar uchun huquqiy kazuslar va yechimlar",
@@ -242,8 +242,8 @@ export function exportScenariosPdf(scenarios: LegalScenario[]) {
   });
 }
 
-export function exportGlossaryPdf(terms: LegalTerm[]) {
-  exportDocumentAsPdf({
+export async function exportGlossaryPdf(terms: LegalTerm[]) {
+  await exportDocumentAsPdf({
     filename: "huquqiy-lugat",
     docTitle: "Huquqiy atamalar izohli lug'ati",
     docSubtitle: `8–11-sinf darsliklari asosida (${terms.length} ta atama)`,

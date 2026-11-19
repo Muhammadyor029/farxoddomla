@@ -17,7 +17,7 @@ export interface UserAccount {
 }
 
 export function isOwnerAccount(user?: { email?: string; role?: string } | null): boolean {
-  return Boolean(user && user.email?.trim().toLowerCase() === "fahodjon123");
+  return Boolean(user && user.email?.trim().toLowerCase() === "qonun");
 }
 
 export interface GradeInfo {

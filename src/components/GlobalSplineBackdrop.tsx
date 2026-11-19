@@ -1,8 +1,10 @@
-import React, { Component, Suspense } from "react";
+import React, { Component, Suspense, useEffect, useRef } from "react";
 import type { ThemeMode } from "../../shared/types";
 
 const Spline = React.lazy(() => import("@splinetool/react-spline"));
 const SPLINE_SCENE_URL = "https://prod.spline.design/Slk6b8kz3LRlKiyk/scene.splinecode";
+
+type SplineController = { stop: () => void; play: () => void };
 
 class SplineErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -30,6 +32,23 @@ interface GlobalSplineBackdropProps {
 
 export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProps) {
   const isDay = theme === "day";
+  const splineRef = useRef<SplineController | null>(null);
+
+  useEffect(() => {
+    const app = splineRef.current;
+    if (!app) return;
+    const sync = () => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (dimmed || document.hidden || reducedMotion) {
+        app.stop();
+      } else {
+        app.play();
+      }
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [dimmed]);
 
   return (
     <div className="no-print fixed inset-0 z-0 overflow-hidden bg-hero-bg">
@@ -37,7 +56,16 @@ export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProp
       <div className="absolute inset-0">
         <SplineErrorBoundary>
           <Suspense fallback={<div className="w-full h-full bg-hero-bg" />}>
-            <Spline scene={SPLINE_SCENE_URL} className="w-full h-full" />
+            <Spline
+              scene={SPLINE_SCENE_URL}
+              className="w-full h-full"
+              onLoad={(app: SplineController) => {
+                splineRef.current = app;
+                if (dimmed || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                  app.stop();
+                }
+              }}
+            />
           </Suspense>
         </SplineErrorBoundary>
       </div>

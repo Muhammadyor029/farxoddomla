@@ -848,7 +848,7 @@ export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
                       <div className="text-muted-foreground">{u.email} · {u.xp} XP</div>
                     </div>
                     <span className="text-[11px] font-medium px-2.5 py-1 rounded-sm border border-border bg-secondary/50 text-foreground">
-                      {u.email.toLowerCase() === "fahodjon123" ? "Asosiy profil" : "Foydalanuvchi"}
+                      {u.email.toLowerCase() === "qonun" ? "Asosiy profil" : "Foydalanuvchi"}
                     </span>
                   </div>
                 ))}

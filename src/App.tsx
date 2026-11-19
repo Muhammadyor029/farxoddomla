@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { GameDefinition, GradeInfo } from "../shared/types";
 import { apiRequest } from "./lib/api";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -8,15 +8,46 @@ import { Navbar, type RouteKey } from "./components/Navbar";
 import { AuthModal } from "./components/AuthModal";
 import { LegalAIAssistant } from "./components/ai/LegalAIAssistant";
 import { HomePage } from "./pages/HomePage";
-import { AllTopicsPage, GradesPage, LessonWorkspacePage } from "./pages/GradesAndTopicsPages";
-import {
-  GamesPage,
-  InteractiveLessonsPage,
-  PresentationsLibraryPage,
-  TestCenterPage,
-} from "./pages/LearningToolsPages";
-import { GlossaryPage, LegislationPage, ScenariosPage } from "./pages/ReferencePages";
-import { AdminPanelPage, StudentCabinetPage, TeacherCabinetPage } from "./pages/CabinetsPages";
+
+const GradesPage = lazy(() =>
+  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.GradesPage }))
+);
+const AllTopicsPage = lazy(() =>
+  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.AllTopicsPage }))
+);
+const LessonWorkspacePage = lazy(() =>
+  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.LessonWorkspacePage }))
+);
+const GamesPage = lazy(() =>
+  import("./pages/LearningToolsPages").then((m) => ({ default: m.GamesPage }))
+);
+const InteractiveLessonsPage = lazy(() =>
+  import("./pages/LearningToolsPages").then((m) => ({ default: m.InteractiveLessonsPage }))
+);
+const PresentationsLibraryPage = lazy(() =>
+  import("./pages/LearningToolsPages").then((m) => ({ default: m.PresentationsLibraryPage }))
+);
+const TestCenterPage = lazy(() =>
+  import("./pages/LearningToolsPages").then((m) => ({ default: m.TestCenterPage }))
+);
+const GlossaryPage = lazy(() =>
+  import("./pages/ReferencePages").then((m) => ({ default: m.GlossaryPage }))
+);
+const LegislationPage = lazy(() =>
+  import("./pages/ReferencePages").then((m) => ({ default: m.LegislationPage }))
+);
+const ScenariosPage = lazy(() =>
+  import("./pages/ReferencePages").then((m) => ({ default: m.ScenariosPage }))
+);
+const AdminPanelPage = lazy(() =>
+  import("./pages/CabinetsPages").then((m) => ({ default: m.AdminPanelPage }))
+);
+const StudentCabinetPage = lazy(() =>
+  import("./pages/CabinetsPages").then((m) => ({ default: m.StudentCabinetPage }))
+);
+const TeacherCabinetPage = lazy(() =>
+  import("./pages/CabinetsPages").then((m) => ({ default: m.TeacherCabinetPage }))
+);
 
 function HuquqOlamiShell() {
   const { theme } = useTheme();
@@ -71,6 +102,7 @@ function HuquqOlamiShell() {
       <Navbar activeRoute={route} onNavigate={handleNavigate} onOpenAuth={() => setAuthOpen(true)} />
 
       <main className={`relative z-10 flex-1 ${route === "home" ? "pointer-events-none" : ""}`}>
+        <Suspense fallback={<div className="min-h-[60vh]" />}>
         {route === "home" && (
           <HomePage
             grades={grades}
@@ -110,6 +142,7 @@ function HuquqOlamiShell() {
         )}
         {route === "teacher" && <TeacherCabinetPage onOpenAuth={() => setAuthOpen(true)} />}
         {route === "admin" && <AdminPanelPage onOpenAuth={() => setAuthOpen(true)} />}
+        </Suspense>
       </main>
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
