@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import path from "node:path";
-import { createServer as createViteServer } from "vite";
 import { createApp } from "./server/app";
 
 async function startServer() {
@@ -9,13 +8,18 @@ async function startServer() {
   const port = Number(process.env.PORT || 3000);
   const isProd = process.env.NODE_ENV === "production";
 
+  app.all("/api/*", (_req, res) => {
+    res.status(404).json({ error: "API yo'nalishi topilmadi." });
+  });
+
   if (isProd) {
     const distDir = path.resolve(process.cwd(), "dist");
     app.use(express.static(distDir));
-    app.get("/{*path}", (_req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distDir, "index.html"));
     });
   } else {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

@@ -1,4 +1,13 @@
 export type UserRole = "student" | "teacher" | "admin";
+export type UserStatus = "active" | "pending" | "rejected";
+export type AccessRequestStatus = "none" | "pending" | "approved" | "rejected";
+export type AccessResourceType =
+  | "chapters"
+  | "lessons"
+  | "presentations"
+  | "glossary"
+  | "legislation"
+  | "scenarios";
 export type ContentStatus = "verified" | "draft";
 export type ThemeMode = "night" | "day";
 
@@ -7,6 +16,8 @@ export interface UserAccount {
   email: string;
   fullName: string;
   role: UserRole;
+  status?: UserStatus;
+  canUnlockTopics?: boolean;
   gradeNumber?: number;
   className?: string;
   schoolName?: string;
@@ -16,8 +27,19 @@ export interface UserAccount {
   createdAt: string;
 }
 
-export function isOwnerAccount(user?: { email?: string; role?: string } | null): boolean {
-  return Boolean(user && user.email?.trim().toLowerCase() === "qonun");
+export function isOwnerAccount(user?: { role?: string; canUnlockTopics?: boolean } | null): boolean {
+  return Boolean(user && (user.role === "admin" || user.canUnlockTopics));
+}
+
+export interface AccessRequestRecord {
+  id: number;
+  userId: number;
+  resourceType: AccessResourceType;
+  resourceId: number;
+  status: Exclude<AccessRequestStatus, "none">;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: number | null;
 }
 
 export interface GradeInfo {
@@ -156,14 +178,22 @@ export interface LessonContent16 {
     question: string;
     hint: string;
   }>;
-  /** 15. Xulosa */
+  /** 15. Xatolar tahlili (ko'p uchraydigan xato tushunchalar) */
+  errorAnalysis?: Array<{
+    misconception: string;
+    correction: string;
+    legalBasis: string;
+  }>;
+  /** 16. Xulosa */
   conclusion: string;
-  /** 16. Foydalanilgan darslik manbalari */
+  /** Foydalanilgan darslik manbalari */
   sources: Array<{
     title: string;
     pages: string;
     factNote: string;
   }>;
+  /** O'z bilimini baholash cheklisti */
+  selfAssessment?: string[];
 }
 
 export interface LessonInfo {

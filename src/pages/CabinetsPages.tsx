@@ -12,12 +12,74 @@ import {
   Settings,
   CheckCircle2,
   Trash2,
+  Bell,
+  BookmarkCheck,
 } from "lucide-react";
 import type { AchievementItem, GameAttemptRecord, LessonInfo, QuizAttemptRecord } from "../../shared/types";
-import { apiRequest } from "../lib/api";
+import { apiRequest, notifyNotificationsUpdated, type AdminNotificationData } from "../lib/api";
 import { exportDocumentAsPdf } from "../lib/pdfExport";
 import { useAuth } from "../contexts/AuthContext";
+import { resourceTypeLabel } from "../components/AccessRequestButton";
 import { Button } from "../components/ui/button";
+
+interface StudentDashboard {
+  user?: { completedLessons?: number; totalLessons?: number };
+  completedLessons?: number;
+  totalLessons?: number;
+  milestones?: Array<{
+    id: string | number;
+    title: string;
+    description?: string;
+    requiredCount?: number;
+    achieved?: boolean;
+  }>;
+  achievements?: AchievementItem[];
+  progress?: Array<{
+    lesson_id: number;
+    title: string;
+    grade_number: number;
+    lesson_number_label: string;
+    quiz_best_score: number;
+  }>;
+  quizAttempts?: QuizAttemptRecord[];
+  gameAttempts?: GameAttemptRecord[];
+  assignments?: Array<{
+    id: number;
+    title: string;
+    description: string;
+    gradeNumber: number;
+    dueDate: string;
+    teacherName: string;
+    submitted: boolean;
+    answerText: string;
+    score: number | null;
+    feedback: string;
+  }>;
+  leaderboard?: Array<{
+    id: number;
+    full_name: string;
+    grade_number: number;
+    class_name: string;
+    completed_lessons?: number;
+  }>;
+}
+
+function CompletedMarker() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-sm border border-emerald/40 bg-emerald/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald">
+      <BookmarkCheck className="w-3 h-3" /> Yakunlandi
+    </span>
+  );
+}
+
+function completionSafeDescription(text: string | undefined, requiredCount?: number): string {
+  if (!text || /\bxp\b/i.test(text)) {
+    return requiredCount && requiredCount > 0
+      ? `${requiredCount} ta darsni yakunlaganingizda ochiladi.`
+      : "Darslarni yakunlash orqali oching.";
+  }
+  return text;
+}
 
 function AuthRequiredCard({
   title,
@@ -51,31 +113,13 @@ export function StudentCabinetPage({
   onSelectLesson: (id: number) => void;
 }) {
   const { user, refreshUser } = useAuth();
-  const [data, setData] = useState<{
-    progress: Array<{ lesson_id: number; title: string; grade_number: number; lesson_number_label: string; quiz_best_score: number }>;
-    quizAttempts: QuizAttemptRecord[];
-    gameAttempts: GameAttemptRecord[];
-    achievements: AchievementItem[];
-    assignments: Array<{
-      id: number;
-      title: string;
-      description: string;
-      gradeNumber: number;
-      dueDate: string;
-      teacherName: string;
-      submitted: boolean;
-      answerText: string;
-      score: number | null;
-      feedback: string;
-    }>;
-    leaderboard: Array<{ id: number; full_name: string; grade_number: number; class_name: string; xp: number; level: number }>;
-  } | null>(null);
+  const [data, setData] = useState<StudentDashboard | null>(null);
   const [draftAnswers, setDraftAnswers] = useState<Record<number, string>>({});
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   const loadDashboard = () => {
     if (!user) return;
-    apiRequest<typeof data>("/api/student/dashboard")
+    apiRequest<StudentDashboard>("/api/student/dashboard")
       .then((res) => {
         if (res) setData(res);
       })
@@ -93,7 +137,7 @@ export function StudentCabinetPage({
     return (
       <AuthRequiredCard
         title="Shaxsiy kabinet"
-        description="XP reytingi, natijalar va shaxsiy profilni ko'rish uchun tizimga kiring."
+        description="Yakunlangan darslar, natijalar va shaxsiy profilni ko'rish uchun tizimga kiring."
         onOpenAuth={onOpenAuth}
       />
     );
@@ -106,47 +150,61 @@ export function StudentCabinetPage({
       method: "POST",
       body: JSON.stringify({ answerText: text }),
     });
-    setStatusMsg("Uyga vazifa topshirildi! +40 XP qo'shildi.");
+    setStatusMsg("Uyga vazifa topshirildi!");
     refreshUser();
     loadDashboard();
   }
 
   function downloadStudentReport() {
     if (!user || !data) return;
+    const done = data.completedLessons ?? data.user?.completedLessons ?? data.progress?.length ?? 0;
+    const total = data.totalLessons ?? data.user?.totalLessons ?? done;
     exportDocumentAsPdf({
       filename: `oquvchi-hisoboti-${user.id}`,
       docTitle: `O'quvchi natijalari hisoboti: ${user.fullName}`,
-      docSubtitle: `${user.gradeNumber}-sinf · ${user.schoolName || ""} · ${user.xp} XP (${user.level}-daraja)`,
+      docSubtitle: `${user.gradeNumber}-sinf · ${user.schoolName || ""} · Yakunlangan darslar: ${done}/${total}`,
       blocks: [
         {
           heading: "1. Umumiy ko'rsatkichlar",
           accent: true,
           body: [
-            `O'zlashtirilgan darslar: ${data.progress.length} ta`,
-            `Topshirilgan testlar: ${data.quizAttempts.length} ta`,
-            `O'ynalgan huquqiy o'yinlar: ${data.gameAttempts.length} ta`,
+            `Yakunlangan darslar: ${done} / ${total} ta`,
+            `Topshirilgan testlar: ${data.quizAttempts?.length ?? 0} ta`,
+            `O'ynalgan huquqiy o'yinlar: ${data.gameAttempts?.length ?? 0} ta`,
           ],
         },
         {
           heading: "2. Test natijalari",
           body:
-            data.quizAttempts.length > 0
-              ? data.quizAttempts.map((q) => `${q.quizTitle}: ${q.score}/${q.maxScore} (${q.percentage}%)`)
+            (data.quizAttempts?.length ?? 0) > 0
+              ? (data.quizAttempts ?? []).map((q) => `${q.quizTitle}: ${q.score}/${q.maxScore} (${q.percentage}%)`)
               : ["Hali test topshirilmagan"],
         },
         {
-          heading: "3. O'zlashtirilgan mavzular",
+          heading: "3. Yakunlangan mavzular",
           body:
-            data.progress.length > 0
-              ? data.progress.map((p) => `${p.grade_number}-sinf · ${p.lesson_number_label} ${p.title} (Eng yuqori ball: ${p.quiz_best_score}%)`)
+            (data.progress?.length ?? 0) > 0
+              ? (data.progress ?? []).map((p) => `${p.grade_number}-sinf · ${p.lesson_number_label} ${p.title} (Eng yuqori ball: ${p.quiz_best_score}%)`)
               : ["Hali mavzular yakunlanmagan"],
         },
       ],
     });
   }
 
-  const nextLevelXp = user.level * 150;
-  const currentLevelPct = Math.min(100, Math.round(((user.xp % 150) / 150) * 100));
+  const completedLessons = data?.completedLessons ?? data?.user?.completedLessons ?? data?.progress?.length ?? 0;
+  const totalLessons =
+    data?.totalLessons ?? data?.user?.totalLessons ?? Math.max(completedLessons, data?.progress?.length ?? 0);
+  const completionPct =
+    totalLessons > 0 ? Math.min(100, Math.round((completedLessons / totalLessons) * 100)) : 0;
+  const milestones = data?.milestones?.length
+    ? data.milestones
+    : (data?.achievements ?? []).map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        requiredCount: undefined,
+        achieved: a.unlocked,
+      }));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-8">
@@ -174,58 +232,70 @@ export function StudentCabinetPage({
         </div>
       )}
 
-      {/* XP & Level Overview */}
+      {/* Completed lessons overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-primary/40 bg-card p-5 space-y-2 md:col-span-2 print-section">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-primary">Daraja {user.level}</span>
+            <span className="font-semibold text-primary">Yakunlangan darslar</span>
             <span className="text-muted-foreground tabular-nums">
-              {user.xp} / {nextLevelXp} XP
+              {completedLessons} / {totalLessons}
             </span>
           </div>
           <div className="h-2.5 rounded-full bg-secondary overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${currentLevelPct}%` }} />
+            <div className="h-full bg-primary transition-all" style={{ width: `${completionPct}%` }} />
           </div>
           <div className="text-xs text-muted-foreground">
-            Har bir dars (+30 XP), test (+80 XP gacha) va o&apos;yin (+120 XP) sizning huquqiy reytingingizni oshiradi.
+            Har bir yakunlangan dars sizning o&apos;zlashtirish ko&apos;rsatkichingizni oshiradi.
           </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 print-section">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <BookOpen className="w-4 h-4 text-primary" /> O&apos;tilgan mavzular
+            <BookOpen className="w-4 h-4 text-primary" /> Yakunlangan mavzular
           </div>
-          <div className="text-3xl font-bold text-foreground mt-2 tabular-nums">{data?.progress.length || 0}</div>
+          <div className="text-3xl font-bold text-foreground mt-2 tabular-nums">{completedLessons}</div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 print-section">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Flame className="w-4 h-4 text-emerald" /> Faol kunlar seriyasi
           </div>
-          <div className="text-3xl font-bold text-primary mt-2 tabular-nums">{user.streakDays} kun</div>
+          <div className="text-3xl font-bold text-primary mt-2 tabular-nums">{user.streakDays ?? 0} kun</div>
         </div>
       </div>
 
-      {/* Achievements */}
-      {data && (
+      {/* Milestones */}
+      {data && milestones.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-6 space-y-4 print-section">
           <h3 className="text-base font-bold text-foreground flex items-center gap-2">
             <Award className="w-5 h-5 text-primary" /> Yutuqlar va Nishonlar
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {data.achievements.map((ach) => (
-              <div
-                key={ach.id}
-                className={`rounded-xl border p-4 space-y-1.5 ${
-                  ach.unlocked ? "border-primary/50 bg-primary/10" : "border-border bg-background/50 opacity-60"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <Trophy className={`w-4 h-4 ${ach.unlocked ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-[11px] font-semibold tabular-nums text-emerald">{ach.xpThreshold} XP</span>
+            {milestones.map((ms) => {
+              const achieved = Boolean(ms.achieved);
+              const required = ms.requiredCount ?? 0;
+              return (
+                <div
+                  key={ms.id}
+                  className={`rounded-xl border p-4 space-y-1.5 ${
+                    achieved ? "border-primary/50 bg-primary/10" : "border-border bg-background/50 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <Trophy className={`w-4 h-4 ${achieved ? "text-primary" : "text-muted-foreground"}`} />
+                    {achieved ? (
+                      <CompletedMarker />
+                    ) : (
+                      <span className="text-[11px] font-semibold tabular-nums text-emerald">
+                        {required > 0 ? `${required} ta dars` : "Nishon"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs font-bold text-foreground">{ms.title}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {completionSafeDescription(ms.description, required)}
+                  </div>
                 </div>
-                <div className="text-xs font-bold text-foreground">{ach.title}</div>
-                <div className="text-[11px] text-muted-foreground">{ach.description}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -236,7 +306,7 @@ export function StudentCabinetPage({
           <div className="lg:col-span-7 space-y-4">
             <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
               <h3 className="text-base font-bold text-foreground">O&apos;qituvchi vazifalari</h3>
-              {data.assignments.map((asg) => (
+              {(data.assignments ?? []).map((asg) => (
                 <div key={asg.id} className="rounded-xl border border-border bg-background/60 p-4 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-semibold text-primary">{asg.gradeNumber}-sinf · {asg.teacherName}</span>
@@ -273,16 +343,16 @@ export function StudentCabinetPage({
 
             <div className="rounded-2xl border border-border bg-card p-6 space-y-3 print-section">
               <h3 className="text-base font-bold text-foreground">So&apos;nggi test va o&apos;yin natijalari</h3>
-              {data.quizAttempts.map((qa) => (
+              {(data.quizAttempts ?? []).map((qa) => (
                 <div key={qa.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/60 p-3 text-xs">
                   <span className="font-medium text-foreground truncate">{qa.quizTitle}</span>
                   <span className="text-primary font-bold tabular-nums shrink-0">{qa.percentage}%</span>
                 </div>
               ))}
-              {data.gameAttempts.map((ga) => (
+              {(data.gameAttempts ?? []).map((ga) => (
                 <div key={ga.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/60 p-3 text-xs">
                   <span className="font-medium text-foreground">{ga.gameTitle}</span>
-                  <span className="text-emerald font-bold tabular-nums shrink-0">+{ga.xpEarned} XP</span>
+                  <span className="text-emerald font-bold tabular-nums shrink-0">{ga.score}/{ga.maxScore}</span>
                 </div>
               ))}
             </div>
@@ -290,29 +360,36 @@ export function StudentCabinetPage({
 
           <div className="lg:col-span-5 space-y-4">
             <div className="rounded-2xl border border-border bg-card p-6 space-y-3 print-section">
-              <h3 className="text-base font-bold text-foreground">O&apos;zlashtirilgan mavzular</h3>
-              {data.progress.length === 0 ? (
+              <h3 className="text-base font-bold text-foreground">Yakunlangan mavzular</h3>
+              {(data.progress?.length ?? 0) === 0 ? (
                 <p className="text-xs text-muted-foreground">Hali birorta mavzu yakunlanmagan.</p>
               ) : (
-                data.progress.map((p) => (
+                (data.progress ?? []).map((p) => (
                   <button
                     key={p.lesson_id}
                     type="button"
                     onClick={() => onSelectLesson(p.lesson_id)}
-                    className="w-full flex items-center justify-between rounded-lg border border-border bg-background/60 p-3 text-left text-xs hover:border-primary/50 cursor-pointer"
+                    className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-background/60 p-3 text-left text-xs hover:border-primary/50 cursor-pointer"
                   >
                     <span className="font-medium text-foreground truncate">
                       {p.grade_number}-sinf · {p.title}
                     </span>
-                    <span className="text-primary font-bold tabular-nums shrink-0">{p.quiz_best_score}%</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <CompletedMarker />
+                      <span className="text-primary font-bold tabular-nums">{p.quiz_best_score}%</span>
+                    </span>
                   </button>
                 ))
               )}
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-6 space-y-3 print-section">
-              <h3 className="text-base font-bold text-foreground">Maktab reytingi (Top o&apos;quvchilar)</h3>
-              {data.leaderboard.map((st, idx) => (
+              <h3 className="text-base font-bold text-foreground">Eng ko&apos;p dars yakunlagan o&apos;quvchilar</h3>
+              <div className="flex items-center justify-between gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span>O&apos;quvchi</span>
+                <span>Yakunlangan darslar</span>
+              </div>
+              {(data.leaderboard ?? []).map((st, idx) => (
                 <div key={st.id} className="flex items-center justify-between rounded-lg border border-border bg-background/60 p-3 text-xs">
                   <div className="flex items-center gap-2.5">
                     <span className="w-5 h-5 rounded-md bg-primary/15 text-primary font-bold flex items-center justify-center tabular-nums">
@@ -323,7 +400,7 @@ export function StudentCabinetPage({
                       <div className="text-[11px] text-muted-foreground">{st.grade_number}-sinf · {st.class_name}</div>
                     </div>
                   </div>
-                  <span className="font-bold text-primary tabular-nums">{st.xp} XP</span>
+                  <span className="font-bold text-primary tabular-nums">{st.completed_lessons ?? 0}</span>
                 </div>
               ))}
             </div>
@@ -345,10 +422,8 @@ export function TeacherCabinetPage({ onOpenAuth }: { onOpenAuth: () => void }) {
       email: string;
       grade_number: number;
       class_name: string;
-      xp: number;
-      level: number;
-      completed_lessons: number;
-      avg_quiz_score: number | null;
+      completed_lessons?: number;
+      avg_quiz_score?: number | null;
     }>;
     assignments: Array<{ id: number; title: string; grade_number: number; due_date: string }>;
     submissions: Array<{
@@ -415,10 +490,9 @@ export function TeacherCabinetPage({ onOpenAuth }: { onOpenAuth: () => void }) {
 
   function downloadCsvReport() {
     if (!dash) return;
-    const header = "Ism-familiya,Sinf,Guruh,XP,Daraja,O'tilgan darslar,O'rtacha test (%)";
-    const rows = dash.students.map(
-      (s) =>
-        `"${s.full_name}",${s.grade_number},"${s.class_name}",${s.xp},${s.level},${s.completed_lessons},${s.avg_quiz_score ?? 0}`
+    const header = "Ism-familiya,Sinf,Guruh,Yakunlangan darslar,O'rtacha test (%)";
+    const rows = (dash.students ?? []).map(
+      (s) => `"${s.full_name}",${s.grade_number},"${s.class_name}",${s.completed_lessons ?? 0},${s.avg_quiz_score ?? 0}`
     );
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -517,19 +591,19 @@ export function TeacherCabinetPage({ onOpenAuth }: { onOpenAuth: () => void }) {
               <tr>
                 <th className="p-4">O&apos;quvchi</th>
                 <th className="p-4">Sinf</th>
-                <th className="p-4">XP / Daraja</th>
-                <th className="p-4">O&apos;tilgan dars</th>
+                <th className="p-4">Yakunlangan darslar</th>
                 <th className="p-4">O&apos;rtacha test</th>
+                <th className="p-4">Holat</th>
               </tr>
             </thead>
             <tbody>
-              {dash.students.map((s) => (
+              {(dash.students ?? []).map((s) => (
                 <tr key={s.id} className="border-b border-border/50">
                   <td className="p-4 font-semibold text-foreground">{s.full_name}</td>
                   <td className="p-4 text-muted-foreground">{s.grade_number}-sinf ({s.class_name})</td>
-                  <td className="p-4 text-primary font-bold tabular-nums">{s.xp} XP · {s.level}-daraja</td>
-                  <td className="p-4 tabular-nums">{s.completed_lessons}</td>
+                  <td className="p-4 text-primary font-bold tabular-nums">{s.completed_lessons ?? 0}</td>
                   <td className="p-4 tabular-nums text-emerald font-semibold">{s.avg_quiz_score ?? 0}%</td>
+                  <td className="p-4">{(s.completed_lessons ?? 0) > 0 ? <CompletedMarker /> : <span className="text-muted-foreground">—</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -698,10 +772,10 @@ export function TeacherCabinetPage({ onOpenAuth }: { onOpenAuth: () => void }) {
 
           <div className="rounded-2xl border border-border bg-card p-6 space-y-3">
             <h3 className="text-lg font-bold text-foreground">Topshirilgan ishlar</h3>
-            {dash.submissions.length === 0 ? (
+            {(dash.submissions?.length ?? 0) === 0 ? (
               <p className="text-xs text-muted-foreground">Hali topshirilgan vazifalar yo&apos;q.</p>
             ) : (
-              dash.submissions.map((sub) => (
+              (dash.submissions ?? []).map((sub) => (
                 <div key={sub.id} className="rounded-xl border border-border bg-background/60 p-4 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <strong className="text-primary">{sub.student_name} ({sub.grade_number}-sinf)</strong>
@@ -730,7 +804,7 @@ export function TeacherCabinetPage({ onOpenAuth }: { onOpenAuth: () => void }) {
 export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
   const { user } = useAuth();
   const [adminData, setAdminData] = useState<{
-    users: Array<{ id: number; email: string; full_name: string; role: string; grade_number: number; xp: number }>;
+    users: Array<{ id: number; email: string; full_name: string; role: string; grade_number?: number }>;
     stats: {
       usersCount: number;
       lessonsCount: number;
@@ -744,11 +818,20 @@ export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
     aiSettings: { model_name: string; pedagogical_tone: string; strict_grounding: number; enabled: number };
   } | null>(null);
   const [lessons, setLessons] = useState<LessonInfo[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotificationData | null>(null);
   const [aiForm, setAiForm] = useState({ modelName: "gemini-4-hydrogen", pedagogicalTone: "", strictGrounding: true, enabled: true });
   const [msg, setMsg] = useState<string | null>(null);
 
+  const loadNotifications = () => {
+    if (!user || user.role !== "admin") return;
+    apiRequest<AdminNotificationData>("/api/admin/notifications")
+      .then((res) => setNotifications(res))
+      .catch(() => setNotifications(null));
+  };
+
   const loadAll = () => {
     if (!user || user.role !== "admin") return;
+    loadNotifications();
     apiRequest<typeof adminData>("/api/admin/dashboard")
       .then((res) => {
         if (res) {
@@ -811,11 +894,123 @@ export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
     setMsg("AI yordamchi sozlamalari saqlandi!");
   }
 
+  async function reviewTeacherRequest(id: number, action: "approve" | "reject") {
+    try {
+      await apiRequest(`/api/admin/teacher-requests/${id}/${action}`, { method: "POST" });
+      setMsg(action === "approve" ? "O'qituvchi akkaunti tasdiqlandi." : "O'qituvchi arizasi rad etildi.");
+      loadNotifications();
+      notifyNotificationsUpdated();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Ariza ko'rib chiqilmadi.");
+    }
+  }
+
+  async function reviewAccessRequest(id: number, action: "approve" | "reject") {
+    try {
+      await apiRequest(`/api/admin/access-requests/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action }),
+      });
+      setMsg(action === "approve" ? "Ruxsat so'rovi tasdiqlandi." : "Ruxsat so'rovi rad etildi.");
+      loadNotifications();
+      notifyNotificationsUpdated();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "So'rov ko'rib chiqilmadi.");
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-8">
       <div>
         <span className="text-xs font-semibold uppercase tracking-widest text-primary">Asosiy boshqaruv</span>
         <h1 className="text-2xl sm:text-4xl font-bold text-foreground mt-1">Boshqaruv paneli</h1>
+      </div>
+
+      <div id="bildirishnomalar" className="rounded-2xl border border-border bg-card p-6 space-y-4">
+        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+          <Bell className="w-4 h-4 text-primary" /> Bildirishnomalar / Tasdiqlashlar
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              O&apos;qituvchi arizalari ({notifications?.teacherRequests.length || 0})
+            </h4>
+            {!notifications || notifications.teacherRequests.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Hali kutilayotgan arizalar yo&apos;q.</p>
+            ) : (
+              notifications.teacherRequests.map((tr) => (
+                <div
+                  key={tr.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/60 p-3 text-xs"
+                >
+                  <div>
+                    <div className="font-semibold text-foreground">{tr.fullName}</div>
+                    <div className="text-muted-foreground">{tr.email} · {tr.gradeNumber}-sinf</div>
+                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                      {new Date(tr.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => reviewTeacherRequest(tr.id, "approve")} className="text-[11px]">
+                      Tasdiqlash
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => reviewTeacherRequest(tr.id, "reject")}
+                      className="text-[11px]"
+                    >
+                      Rad etish
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Ruxsat so&apos;rovlari ({notifications?.accessRequests.filter((ar) => ar.status === "pending").length || 0})
+            </h4>
+            {!notifications ||
+            notifications.accessRequests.filter((ar) => ar.status === "pending").length === 0 ? (
+              <p className="text-xs text-muted-foreground">Hali kutilayotgan so&apos;rovlar yo&apos;q.</p>
+            ) : (
+              notifications.accessRequests
+                .filter((ar) => ar.status === "pending")
+                .map((ar) => (
+                  <div
+                    key={ar.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/60 p-3 text-xs"
+                  >
+                    <div>
+                      <div className="font-semibold text-foreground">{ar.fullName}</div>
+                      <div className="text-muted-foreground">{ar.email}</div>
+                      <div className="text-[11px] text-primary">
+                        {resourceTypeLabel(ar.resourceType)} · {ar.resourceId === 0 ? "Butun bo'lim" : `#${ar.resourceId}`}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground tabular-nums">
+                        {new Date(ar.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => reviewAccessRequest(ar.id, "approve")} className="text-[11px]">
+                        Tasdiqlash
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => reviewAccessRequest(ar.id, "reject")}
+                        className="text-[11px]"
+                      >
+                        Rad etish
+                      </Button>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </div>
       </div>
 
       {msg && <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs text-primary">{msg}</div>}
@@ -824,10 +1019,10 @@ export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Foydalanuvchilar", value: adminData.stats.usersCount },
-              { label: "Jami mavzular", value: adminData.stats.lessonsCount },
-              { label: "Tasdiqlangan (Verified)", value: adminData.stats.verifiedLessons },
-              { label: "Test & O'yin urinishlari", value: adminData.stats.quizAttemptsCount + adminData.stats.gameAttemptsCount },
+              { label: "Foydalanuvchilar", value: adminData.stats?.usersCount ?? 0 },
+              { label: "Jami mavzular", value: adminData.stats?.lessonsCount ?? 0 },
+              { label: "Tasdiqlangan (Verified)", value: adminData.stats?.verifiedLessons ?? 0 },
+              { label: "Test & O'yin urinishlari", value: (adminData.stats?.quizAttemptsCount ?? 0) + (adminData.stats?.gameAttemptsCount ?? 0) },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl border border-border bg-card p-5">
                 <div className="text-xs text-muted-foreground">{s.label}</div>
@@ -841,14 +1036,14 @@ export function AdminPanelPage({ onOpenAuth }: { onOpenAuth: () => void }) {
             <div className="lg:col-span-7 rounded-2xl border border-border bg-card p-6 space-y-4">
               <h3 className="text-base font-bold text-foreground">Ro&apos;yxatdan o&apos;tgan foydalanuvchilar</h3>
               <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                {adminData.users.map((u) => (
+                {(adminData.users ?? []).map((u) => (
                   <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/60 p-3 text-xs">
                     <div>
                       <div className="font-semibold text-foreground">{u.full_name}</div>
-                      <div className="text-muted-foreground">{u.email} · {u.xp} XP</div>
+                      <div className="text-muted-foreground">{u.email}{typeof u.grade_number === "number" ? ` · ${u.grade_number}-sinf` : ""}</div>
                     </div>
                     <span className="text-[11px] font-medium px-2.5 py-1 rounded-sm border border-border bg-secondary/50 text-foreground">
-                      {u.email.toLowerCase() === "qonun" ? "Asosiy profil" : "Foydalanuvchi"}
+                      {u.role === "admin" ? "Administrator" : u.role === "teacher" ? "O'qituvchi" : "O'quvchi"}
                     </span>
                   </div>
                 ))}

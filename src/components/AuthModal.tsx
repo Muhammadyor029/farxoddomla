@@ -16,22 +16,30 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   const [fullName, setFullName] = useState("");
   const [gradeNumber, setGradeNumber] = useState(9);
   const [schoolName, setSchoolName] = useState("Toshkent sh. 110-umumta'lim maktabi");
+  const [role, setRole] = useState<"student" | "teacher">("student");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   if (!open) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
     try {
       if (mode === "login") {
         await login(email, password);
+        onClose();
       } else {
-        await register({ fullName, email, password, gradeNumber, schoolName });
+        const result = await register({ fullName, email, password, gradeNumber, schoolName, role });
+        if (result.user) {
+          onClose();
+        } else {
+          setInfo(result.message || "Arizangiz yuborildi. Administrator tasdiqlashini kuting.");
+        }
       }
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xatolik yuz berdi.");
     } finally {
@@ -64,6 +72,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             onClick={() => {
               setMode("login");
               setError(null);
+              setInfo(null);
             }}
             className={`rounded-md py-1.5 text-xs font-semibold cursor-pointer ${
               mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
@@ -76,6 +85,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             onClick={() => {
               setMode("register");
               setError(null);
+              setInfo(null);
             }}
             className={`rounded-md py-1.5 text-xs font-semibold cursor-pointer ${
               mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
@@ -98,6 +108,34 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                   placeholder="Masalan: Madina Karimova"
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground"
                 />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Rolingiz</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 rounded-lg bg-secondary p-1">
+                  <button
+                    type="button"
+                    onClick={() => setRole("student")}
+                    className={`rounded-md py-1.5 text-[11px] sm:text-xs font-semibold cursor-pointer ${
+                      role === "student" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    O&apos;quvchi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("teacher")}
+                    className={`rounded-md py-1.5 text-[11px] sm:text-xs font-semibold cursor-pointer ${
+                      role === "teacher" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    O&apos;qituvchi (ruxsat so&apos;rash bilan)
+                  </button>
+                </div>
+                {role === "teacher" && (
+                  <p className="mt-2 text-[11px] leading-snug text-amber-300/90">
+                    O&apos;qituvchi akkaunti administrator tasdiqlashi kerak. Tasdiqlanmaguningizcha tizimga kira olmaysiz.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
@@ -153,6 +191,11 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           </div>
 
           {error && <div className="text-xs text-red-400">{error}</div>}
+          {info && (
+            <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-[11px] leading-snug text-primary">
+              {info}
+            </div>
+          )}
 
           <Button type="submit" disabled={loading} className="w-full gap-2">
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}

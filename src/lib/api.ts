@@ -1,4 +1,41 @@
+import type { AccessRequestRecord } from "../../shared/types";
+
 const TOKEN_KEY = "huquq_olami_token";
+const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+export const NOTIFICATIONS_UPDATED_EVENT = "huquq_olami_notifications_updated";
+
+export interface AdminNotificationData {
+  teacherRequests: Array<{
+    id: number;
+    email: string;
+    fullName: string;
+    gradeNumber: number;
+    createdAt: string;
+  }>;
+  accessRequests: Array<AccessRequestRecord & { email: string; fullName: string }>;
+}
+
+export function notifyNotificationsUpdated(): void {
+  window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT));
+}
+
+export class ApiRequestError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(message: string, status: number, data: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE_URL}${path}`;
+}
 
 export function getAuthToken(): string | null {
   try {
@@ -30,14 +67,14 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(path, {
+  const res = await fetch(resolveApiUrl(path), {
     ...options,
     headers,
   });
 
   if (!res.ok) {
     const errData = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(errData?.error || `Server xatoligi (${res.status})`);
+    throw new ApiRequestError(errData?.error || `Server xatoligi (${res.status})`, res.status, errData);
   }
 
   const contentType = res.headers.get("content-type") || "";

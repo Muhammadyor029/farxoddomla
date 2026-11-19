@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 export function createDatabase(dbPath?: string): DatabaseSync {
-  const targetPath = dbPath || process.env.SQLITE_PATH || "./data/huquq_olami.db";
+  const envDbPath = process.env.SQLITE_PATH?.trim();
+  const targetPath = dbPath || (envDbPath && envDbPath.length > 0 ? envDbPath : "./data/huquq_olami.db");
   if (targetPath !== ":memory:") {
     const dir = path.dirname(targetPath);
     if (!fs.existsSync(dir)) {
@@ -22,12 +23,14 @@ export function createDatabase(dbPath?: string): DatabaseSync {
       password_hash TEXT NOT NULL,
       full_name TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('student', 'teacher', 'admin')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'pending', 'rejected')),
       grade_number INTEGER DEFAULT 9,
       class_name TEXT DEFAULT '9-A',
       school_name TEXT DEFAULT '1-umumta''lim maktabi',
       xp INTEGER DEFAULT 0,
       level INTEGER DEFAULT 1,
       streak_days INTEGER DEFAULT 1,
+      token_version INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -286,7 +289,33 @@ export function createDatabase(dbPath?: string): DatabaseSync {
       enabled INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS access_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TEXT,
+      reviewed_by INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_access_requests_user_resource
+      ON access_requests (user_id, resource_type, resource_id);
   `);
+
+  const userCols = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  if (!userCols.some((c) => c.name === "token_version")) {
+    db.exec("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1;");
+  }
+  if (!userCols.some((c) => c.name === "status")) {
+    db.exec(
+      "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'pending', 'rejected'));"
+    );
+  }
 
   return db;
 }

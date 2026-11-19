@@ -14,7 +14,7 @@ export const GRADE_9_INFO: GradeInfo = {
   pdfPath: "/assets/aistudio/davlat-va-huquq-asoslari-9-sinf-uz_ece2bb29.pdf",
   totalPages: 126,
   chaptersCount: 4,
-  lessonsCount: 31,
+  lessonsCount: 33,
 };
 
 export const GRADE_9_CHAPTERS: ChapterInfo[] = [

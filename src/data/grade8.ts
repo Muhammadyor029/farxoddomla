@@ -37,7 +37,7 @@ export const GRADE_8_INFO: GradeInfo = {
   pdfPath: "/assets/aistudio/davlat-va-huquq-asoslari-8-sinf-uz_66f27f16.pdf",
   totalPages: 126,
   chaptersCount: 4,
-  lessonsCount: 21,
+  lessonsCount: 23,
 };
 
 export const GRADE_8_CHAPTERS: ChapterInfo[] = [

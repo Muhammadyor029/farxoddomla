@@ -1,10 +1,19 @@
-import React, { Component, Suspense, useEffect, useRef } from "react";
+import React, { Component, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { Application } from "@splinetool/runtime";
 import type { ThemeMode } from "../../shared/types";
 
 const Spline = React.lazy(() => import("@splinetool/react-spline"));
 const SPLINE_SCENE_URL = "https://prod.spline.design/Slk6b8kz3LRlKiyk/scene.splinecode";
 
-type SplineController = { stop: () => void; play: () => void };
+function detectLowPowerDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const narrowScreen = window.innerWidth < 768;
+  const lowCores = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
+  const navMem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+  const lowMem = typeof navMem === "number" && navMem <= 4;
+  return Boolean(reducedMotion || narrowScreen || lowCores || lowMem);
+}
 
 class SplineErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -28,89 +37,179 @@ class SplineErrorBoundary extends Component<
 interface GlobalSplineBackdropProps {
   theme: ThemeMode;
   dimmed: boolean;
+  reducedMotion?: boolean;
 }
 
-export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProps) {
+export function GlobalSplineBackdrop({ theme, dimmed, reducedMotion = false }: GlobalSplineBackdropProps) {
   const isDay = theme === "day";
-  const splineRef = useRef<SplineController | null>(null);
+  const isLowPower = useMemo(() => detectLowPowerDevice(), []);
+  const isSmallScreen = useMemo(
+    () => typeof window !== "undefined" && window.innerWidth < 768,
+    []
+  );
+  const prefersReducedMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
+    []
+  );
+  const disableSpline = isLowPower || isSmallScreen || reducedMotion || prefersReducedMotion;
+  const splineRef = useRef<Application | null>(null);
+  const loadTimerRef = useRef<number | null>(null);
+  const [mountSpline, setMountSpline] = useState(false);
+  const [scrolledPastHero, setScrolledPastHero] = useState(false);
 
+  // Defer WebGL initialization slightly so hero text and controls paint immediately
   useEffect(() => {
-    const app = splineRef.current;
-    if (!app) return;
-    const sync = () => {
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (dimmed || document.hidden || reducedMotion) {
-        app.stop();
-      } else {
-        app.play();
+    if (disableSpline) {
+      setMountSpline(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setMountSpline(true), 60);
+    return () => window.clearTimeout(timer);
+  }, [disableSpline]);
+
+  // Track scroll depth so 3D loop pauses when user scrolls below the hero section
+  useEffect(() => {
+    if (disableSpline) return;
+    let ticking = false;
+    let rafId = 0;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      rafId = window.requestAnimationFrame(() => {
+        const past = window.scrollY > window.innerHeight * 0.85;
+        setScrolledPastHero((prev) => (prev !== past ? past : prev));
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId) window.cancelAnimationFrame(rafId);
+    };
+  }, [disableSpline]);
+
+  // Pause WebGL render loop when hidden, scrolled below hero, reducedMotion enabled, or dimmed on low-power devices
+  useEffect(() => {
+    const syncPlayback = () => {
+      const app = splineRef.current;
+      if (!app) return;
+      const shouldPause =
+        reducedMotion ||
+        document.hidden ||
+        scrolledPastHero ||
+        (isLowPower && dimmed);
+
+      try {
+        if (shouldPause) {
+          if (!app.isStopped) app.stop();
+        } else if (app.isStopped) {
+          app.play();
+        }
+      } catch {
+        // ignore runtime state transitions
       }
     };
-    sync();
-    document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, [dimmed]);
+
+    syncPlayback();
+    document.addEventListener("visibilitychange", syncPlayback);
+    return () => document.removeEventListener("visibilitychange", syncPlayback);
+  }, [dimmed, scrolledPastHero, isLowPower, reducedMotion]);
+
+  useEffect(
+    () => () => {
+      if (loadTimerRef.current !== null) window.clearTimeout(loadTimerRef.current);
+    },
+    []
+  );
+
+  const handleSplineLoad = (app: Application) => {
+    splineRef.current = app;
+    if (reducedMotion || document.hidden || scrolledPastHero || (isLowPower && dimmed)) {
+      loadTimerRef.current = window.setTimeout(() => {
+        try {
+          if (splineRef.current && !splineRef.current.isStopped) {
+            splineRef.current.stop();
+          }
+        } catch {
+          // ignore
+        }
+      }, 280);
+    }
+  };
 
   return (
     <div className="no-print fixed inset-0 z-0 overflow-hidden bg-hero-bg">
-      {/* Persistent interactive Spline 3D scene across all sections */}
-      <div className="absolute inset-0">
-        <SplineErrorBoundary>
-          <Suspense fallback={<div className="w-full h-full bg-hero-bg" />}>
-            <Spline
-              scene={SPLINE_SCENE_URL}
-              className="w-full h-full"
-              onLoad={(app: SplineController) => {
-                splineRef.current = app;
-                if (dimmed || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-                  app.stop();
-                }
-              }}
-            />
-          </Suspense>
-        </SplineErrorBoundary>
+      {/* Persistent interactive Spline 3D scene (downscaled on low-power devices to save GPU fill-rate) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className={
+            isLowPower
+              ? "w-[74%] h-[74%] scale-[1.36] origin-center will-change-transform"
+              : "w-full h-full"
+          }
+        >
+          {mountSpline && !disableSpline ? (
+            <SplineErrorBoundary>
+              <Suspense fallback={<div className="w-full h-full bg-hero-bg" />}>
+                <Spline
+                  scene={SPLINE_SCENE_URL}
+                  renderOnDemand={true}
+                  onLoad={handleSplineLoad}
+                  className="w-full h-full"
+                />
+              </Suspense>
+            </SplineErrorBoundary>
+          ) : (
+            <div className="w-full h-full bg-hero-bg" />
+          )}
+        </div>
       </div>
 
       {/* Day Mode: Uzbekistan Flag-inspired Tricolor Light (Top: Sky Blue, Middle: White with crimson hairline, Bottom: Green) */}
       <div
-        className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
+        className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${
           isDay ? "opacity-100" : "opacity-0"
         }`}
         style={{
-          mixBlendMode: "screen",
+          mixBlendMode: isLowPower ? "normal" : "screen",
           background: `
             linear-gradient(
               180deg,
-              rgba(0, 168, 224, 0.52) 0%,
-              rgba(0, 153, 181, 0.36) 29%,
-              rgba(206, 17, 38, 0.24) 33%,
-              rgba(255, 255, 255, 0.30) 36%,
-              rgba(255, 255, 255, 0.26) 63%,
-              rgba(206, 17, 38, 0.24) 66%,
-              rgba(30, 181, 58, 0.40) 70%,
-              rgba(5, 234, 0, 0.48) 100%
+              rgba(0, 168, 224, ${isLowPower ? "0.40" : "0.52"}) 0%,
+              rgba(0, 153, 181, 0.30) 29%,
+              rgba(206, 17, 38, 0.22) 33%,
+              rgba(255, 255, 255, ${isLowPower ? "0.22" : "0.30"}) 36%,
+              rgba(255, 255, 255, 0.20) 63%,
+              rgba(206, 17, 38, 0.22) 66%,
+              rgba(30, 181, 58, 0.36) 70%,
+              rgba(5, 234, 0, ${isLowPower ? "0.38" : "0.48"}) 100%
             )
           `,
         }}
       />
 
-      {/* Ambient radial light boost in Day Mode so Uzbekistan flag glow stays bright on 3D blocks */}
-      <div
-        className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
-          isDay ? "opacity-100" : "opacity-0"
-        }`}
-        style={{
-          background: `
-            radial-gradient(ellipse 80% 35% at 50% 15%, rgba(0, 180, 235, 0.22), transparent 70%),
-            radial-gradient(ellipse 85% 28% at 50% 50%, rgba(255, 255, 255, 0.14), transparent 72%),
-            radial-gradient(ellipse 80% 35% at 50% 85%, rgba(24, 210, 72, 0.24), transparent 70%)
-          `,
-        }}
-      />
+      {/* Ambient radial light boost in Day Mode */}
+      {!isLowPower && (
+        <div
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${
+            isDay ? "opacity-100" : "opacity-0"
+          }`}
+          style={{
+            background: `
+              radial-gradient(ellipse 80% 35% at 50% 15%, rgba(0, 180, 235, 0.22), transparent 70%),
+              radial-gradient(ellipse 85% 28% at 50% 50%, rgba(255, 255, 255, 0.14), transparent 72%),
+              radial-gradient(ellipse 80% 35% at 50% 85%, rgba(24, 210, 72, 0.24), transparent 70%)
+            `,
+          }}
+        />
+      )}
 
       {/* Uzbekistan Flag Crescent Moon & 12 Stars (3-4-5 formation) in Top-Left Blue Band (Day Mode) */}
       <div
-        className={`absolute top-20 left-6 sm:left-8 lg:left-16 pointer-events-none transition-all duration-700 ${
-          isDay ? "opacity-85 translate-y-0" : "opacity-0 -translate-y-2"
+        className={`absolute top-20 left-6 sm:left-8 lg:left-16 pointer-events-none transition-opacity duration-500 ${
+          isDay ? "opacity-85" : "opacity-0"
         }`}
         aria-hidden="true"
       >
@@ -120,7 +219,6 @@ export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProp
           viewBox="0 0 220 92"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          style={{ filter: "drop-shadow(0 0 14px rgba(255, 255, 255, 0.5))" }}
         >
           <defs>
             <mask id="uz-crescent-mask">
@@ -136,21 +234,17 @@ export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProp
             </g>
           </defs>
 
-          {/* Crescent Moon facing right */}
           <rect width="80" height="92" fill="rgba(255,255,255,0.94)" mask="url(#uz-crescent-mask)" />
 
-          {/* Top row: 3 stars (right-aligned) */}
           <use href="#uz-star" x="128" y="20" />
           <use href="#uz-star" x="156" y="20" />
           <use href="#uz-star" x="184" y="20" />
 
-          {/* Middle row: 4 stars */}
           <use href="#uz-star" x="100" y="46" />
           <use href="#uz-star" x="128" y="46" />
           <use href="#uz-star" x="156" y="46" />
           <use href="#uz-star" x="184" y="46" />
 
-          {/* Bottom row: 5 stars */}
           <use href="#uz-star" x="72" y="72" />
           <use href="#uz-star" x="100" y="72" />
           <use href="#uz-star" x="128" y="72" />
@@ -159,13 +253,13 @@ export function GlobalSplineBackdrop({ theme, dimmed }: GlobalSplineBackdropProp
         </svg>
       </div>
 
-      {/* Base contrast overlay + Sub-section Dim/Soft-Blur Veil */}
+      {/* Base contrast overlay + Sub-section Dim Veil (no full-screen backdrop-blur over WebGL) */}
       <div
-        className={`absolute inset-0 pointer-events-none transition-all duration-500 ${
+        className={`absolute inset-0 pointer-events-none transition-colors duration-300 ${
           dimmed
             ? isDay
-              ? "bg-black/68 backdrop-blur-[3px]"
-              : "bg-black/74 backdrop-blur-[3px]"
+              ? "bg-black/74"
+              : "bg-black/80"
             : isDay
             ? "bg-black/22"
             : "bg-black/30"

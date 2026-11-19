@@ -11,8 +11,10 @@ import {
   Gamepad2,
   Sparkles,
   ChevronLeft,
+  BookmarkCheck,
 } from "lucide-react";
 import type {
+  AccessRequestStatus,
   ChapterInfo,
   GameDefinition,
   GradeInfo,
@@ -20,7 +22,7 @@ import type {
   PresentationDeck,
   QuizInfo,
 } from "../../shared/types";
-import { apiRequest } from "../lib/api";
+import { apiRequest, ApiRequestError } from "../lib/api";
 import { exportLessonPdf } from "../lib/pdfExport";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
@@ -29,7 +31,43 @@ import { PresentationStudio } from "../components/presentations/PresentationStud
 import { QuizRunner } from "../components/quizzes/QuizRunner";
 import { LegalAIAssistant } from "../components/ai/LegalAIAssistant";
 import { LockedTopicCard, LockedTopicsVaultScreen } from "../components/LockedTopicDoor";
+import { AccessRequestButton, type AccessListMeta } from "../components/AccessRequestButton";
 import type { RouteKey } from "../components/Navbar";
+
+function useCompletedLessonIds(): Set<number> {
+  const { user } = useAuth();
+  const [ids, setIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setIds(new Set());
+      return;
+    }
+    apiRequest<{ progress?: Array<{ lesson_id: number }>; completedLessonIds?: number[] }>("/api/student/dashboard")
+      .then((res) => {
+        if (!active) return;
+        const list = res?.completedLessonIds ?? res?.progress?.map((p) => p.lesson_id) ?? [];
+        setIds(new Set(list.filter((n): n is number => typeof n === "number")));
+      })
+      .catch(() => {
+        if (active) setIds(new Set());
+      });
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
+
+  return ids;
+}
+
+function CompletedMarker() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-sm border border-emerald/40 bg-emerald/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald">
+      <BookmarkCheck className="w-3 h-3" /> Yakunlandi
+    </span>
+  );
+}
 
 /* ==================== 1. GRADES PORTAL PAGE ==================== */
 export function GradesPage({
@@ -44,9 +82,13 @@ export function GradesPage({
   onOpenAuth: () => void;
 }) {
   const { user, unlocked } = useAuth();
+  const completedIds = useCompletedLessonIds();
   const [selectedGrade, setSelectedGrade] = useState<number>(initialGrade || 8);
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);
   const [lessons, setLessons] = useState<LessonInfo[]>([]);
+  const [chapterStatus, setChapterStatus] = useState<AccessRequestStatus>("none");
+  const [lessonStatus, setLessonStatus] = useState<AccessRequestStatus>("none");
+  const [lessonsLocked, setLessonsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,13 +99,16 @@ export function GradesPage({
     let active = true;
     setLoading(true);
     Promise.all([
-      apiRequest<{ chapters?: ChapterInfo[] }>(`/api/chapters?grade=${selectedGrade}`),
-      apiRequest<{ lessons?: LessonInfo[] }>(`/api/lessons?grade=${selectedGrade}`),
+      apiRequest<AccessListMeta & { chapters?: ChapterInfo[] }>(`/api/chapters?grade=${selectedGrade}`),
+      apiRequest<AccessListMeta & { lessons?: LessonInfo[] }>(`/api/lessons?grade=${selectedGrade}`),
     ])
       .then(([cRes, lRes]) => {
         if (!active) return;
         setChapters(Array.isArray(cRes?.chapters) ? cRes.chapters : []);
         setLessons(Array.isArray(lRes?.lessons) ? lRes.lessons : []);
+        setChapterStatus(cRes?.requestStatus || "none");
+        setLessonStatus(lRes?.requestStatus || "none");
+        setLessonsLocked(Boolean(lRes?.locked));
       })
       .catch(() => {
         if (!active) return;
@@ -101,6 +146,14 @@ export function GradesPage({
               {gNum}-sinf
             </Button>
           ))}
+          {lessonsLocked && (
+            <AccessRequestButton
+              resourceType="lessons"
+              resourceId={0}
+              requestStatus={lessonStatus}
+              onOpenAuth={onOpenAuth}
+            />
+          )}
         </div>
       </div>
 
@@ -133,7 +186,7 @@ export function GradesPage({
         <div className="space-y-8">
           {chapters.map((ch) => {
             const chLessons = lessons.filter((l) => l.chapterId === ch.id);
-            const isChapterLocked = !unlocked || Boolean(ch.locked);
+            const isChapterLocked = Boolean(ch.locked);
             return (
               <div key={ch.id} className="rounded-2xl border border-border bg-card/70 p-6 space-y-4">
                 {isChapterLocked ? (
@@ -151,6 +204,12 @@ export function GradesPage({
                     >
                       Ochish uchun kirish
                     </button>
+                    <AccessRequestButton
+                      resourceType="chapters"
+                      resourceId={0}
+                      requestStatus={chapterStatus}
+                      onOpenAuth={onOpenAuth}
+                    />
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
@@ -165,7 +224,7 @@ export function GradesPage({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {chLessons.map((lesson) =>
-                    !unlocked || lesson.locked ? (
+                    lesson.locked ? (
                       <LockedTopicCard key={lesson.id} onClick={onOpenAuth} />
                     ) : (
                       <button
@@ -175,9 +234,12 @@ export function GradesPage({
                         className="rounded-xl border border-border bg-background/70 p-4 text-left hover:border-primary/60 hover:bg-secondary/60 transition-all cursor-pointer flex flex-col justify-between gap-3"
                       >
                         <div>
-                          <div className="flex items-center justify-between text-[11px] mb-1.5">
+                          <div className="flex items-center justify-between gap-2 text-[11px] mb-1.5">
                             <span className="font-semibold text-primary">{lesson.lessonNumberLabel}</span>
-                            <span className="text-muted-foreground tabular-nums">{lesson.pageNumber}-bet</span>
+                            <span className="flex items-center gap-1.5">
+                              {completedIds.has(lesson.id) && <CompletedMarker />}
+                              <span className="text-muted-foreground tabular-nums">{lesson.pageNumber}-bet</span>
+                            </span>
                           </div>
                           <h4 className="text-sm font-semibold text-foreground leading-snug">{lesson.title}</h4>
                           <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{lesson.summary}</p>
@@ -212,9 +274,12 @@ export function AllTopicsPage({
   onOpenAuth: () => void;
 }) {
   const { user, unlocked } = useAuth();
+  const completedIds = useCompletedLessonIds();
   const [gradeFilter, setGradeFilter] = useState<number>(0);
   const [query, setQuery] = useState("");
   const [lessons, setLessons] = useState<LessonInfo[]>([]);
+  const [lessonStatus, setLessonStatus] = useState<AccessRequestStatus>("none");
+  const [lessonsLocked, setLessonsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -223,9 +288,13 @@ export function AllTopicsPage({
     const params = new URLSearchParams();
     if (gradeFilter) params.set("grade", String(gradeFilter));
     if (unlocked && query.trim()) params.set("q", query.trim());
-    apiRequest<{ lessons?: LessonInfo[] }>(`/api/lessons?${params.toString()}`)
+    apiRequest<AccessListMeta & { lessons?: LessonInfo[] }>(`/api/lessons?${params.toString()}`)
       .then((res) => {
-        if (active) setLessons(Array.isArray(res?.lessons) ? res.lessons : []);
+        if (active) {
+          setLessons(Array.isArray(res?.lessons) ? res.lessons : []);
+          setLessonStatus(res?.requestStatus || "none");
+          setLessonsLocked(Boolean(res?.locked));
+        }
       })
       .catch(() => {
         if (active) setLessons([]);
@@ -249,6 +318,14 @@ export function AllTopicsPage({
           <Button size="sm" onClick={onOpenAuth} className="rounded-sm text-xs uppercase tracking-wider">
             Qulfni ochish (Kirish)
           </Button>
+        )}
+        {lessonsLocked && (
+          <AccessRequestButton
+            resourceType="lessons"
+            resourceId={0}
+            requestStatus={lessonStatus}
+            onOpenAuth={onOpenAuth}
+          />
         )}
       </div>
 
@@ -288,7 +365,7 @@ export function AllTopicsPage({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {lessons.map((l) =>
-            !unlocked || l.locked ? (
+            l.locked ? (
               <LockedTopicCard key={l.id} onClick={onOpenAuth} />
             ) : (
               <button
@@ -298,11 +375,14 @@ export function AllTopicsPage({
                 className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/60 transition-all cursor-pointer flex flex-col justify-between gap-3"
               >
                 <div>
-                  <div className="flex items-center justify-between text-xs mb-2">
+                  <div className="flex items-center justify-between gap-2 text-xs mb-2">
                     <span className="font-semibold text-primary">
                       {l.gradeNumber}-sinf · {l.lessonNumberLabel}
                     </span>
-                    <span className="text-muted-foreground tabular-nums">{l.pageNumber}-bet</span>
+                    <span className="flex items-center gap-1.5">
+                      {completedIds.has(l.id) && <CompletedMarker />}
+                      <span className="text-muted-foreground tabular-nums">{l.pageNumber}-bet</span>
+                    </span>
                   </div>
                   <h3 className="text-base font-bold text-foreground">{l.title}</h3>
                   <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{l.summary}</p>
@@ -335,6 +415,8 @@ export function LessonWorkspacePage({
   onOpenAuth: () => void;
 }) {
   const { user, unlocked, refreshUser } = useAuth();
+  const completedIds = useCompletedLessonIds();
+  const [justCompleted, setJustCompleted] = useState(false);
   const [lesson, setLesson] = useState<LessonInfo | null>(null);
   const [deck, setDeck] = useState<PresentationDeck | null>(null);
   const [quiz, setQuiz] = useState<QuizInfo | null>(null);
@@ -342,26 +424,21 @@ export function LessonWorkspacePage({
   const [taskAnswers, setTaskAnswers] = useState<Record<string, string>>({});
   const [miniIdx, setMiniIdx] = useState(0);
   const [miniPicked, setMiniPicked] = useState<number | null>(null);
+  const [selfChecks, setSelfChecks] = useState<Record<number, boolean>>({});
   const [completedMsg, setCompletedMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lockedStatus, setLockedStatus] = useState<AccessRequestStatus>("none");
 
   useEffect(() => {
     let active = true;
-    if (!unlocked) {
-      setLesson(null);
-      setDeck(null);
-      setQuiz(null);
-      setLoading(false);
-      return () => {
-        active = false;
-      };
-    }
-
     setLoading(true);
+    setLockedStatus("none");
     setTab("lesson");
     setTaskAnswers({});
     setMiniIdx(0);
     setMiniPicked(null);
+    setSelfChecks({});
+    setJustCompleted(false);
     setCompletedMsg(null);
 
     apiRequest<{ lesson?: LessonInfo }>(`/api/lessons/${lessonId}`)
@@ -380,8 +457,14 @@ export function LessonWorkspacePage({
         if (pRes?.presentation) setDeck(pRes.presentation);
         if (qRes?.quiz) setQuiz(qRes.quiz);
       })
-      .catch(() => {
-        if (active) setLesson(null);
+      .catch((err) => {
+        if (!active) return;
+        setLesson(null);
+        const data = err instanceof ApiRequestError && err.data && typeof err.data === "object" ? err.data : null;
+        if (data && "locked" in data && data.locked === true) {
+          const status = "requestStatus" in data ? data.requestStatus : undefined;
+          setLockedStatus(typeof status === "string" ? (status as AccessRequestStatus) : "none");
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -398,23 +481,29 @@ export function LessonWorkspacePage({
       return;
     }
     try {
-      const res = await apiRequest<{ xp: number }>("/api/student/progress", {
+      await apiRequest<{ completed?: boolean; completedLessons?: number }>("/api/student/progress", {
         method: "POST",
         body: JSON.stringify({ lessonId: lesson.id }),
       });
-      setCompletedMsg(`Mavzu o'zlashtirildi! Jami XP: ${res.xp}`);
+      setJustCompleted(true);
+      setCompletedMsg("Mavzu yakunlandi sifatida belgilandi.");
       refreshUser();
     } catch (err) {
       setCompletedMsg(err instanceof Error ? err.message : "Saqlashda xatolik.");
     }
   }
 
-  if (!unlocked) {
+  if (!loading && !lesson) {
     return (
       <LockedTopicsVaultScreen
         onOpenAuth={onOpenAuth}
         onNavigateGames={() => onNavigate("games")}
         onNavigateTests={() => onNavigate("tests")}
+        accessRequest={{
+          resourceType: "lessons",
+          resourceId: lessonId,
+          requestStatus: lockedStatus,
+        }}
       />
     );
   }
@@ -429,6 +518,7 @@ export function LessonWorkspacePage({
 
   const c = lesson.content;
   const currentMiniRound = c.miniGame.rounds[miniIdx];
+  const isCompleted = justCompleted || completedIds.has(lesson.id);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-6">
@@ -446,10 +536,16 @@ export function LessonWorkspacePage({
             <FileDown className="w-3.5 h-3.5" /> PDF yuklash
           </Button>
           <Button size="sm" onClick={markCompleted} className="gap-1.5 text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Darsni yakunlash (+30 XP)
+            <CheckCircle2 className="w-3.5 h-3.5" /> Darsni yakunlash
           </Button>
         </div>
       </div>
+
+      {isCompleted && (
+        <div className="flex justify-end no-print">
+          <CompletedMarker />
+        </div>
+      )}
 
       {completedMsg && (
         <div className="rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs text-primary no-print">
@@ -695,7 +791,7 @@ export function LessonWorkspacePage({
                 <div className="text-xs font-semibold text-primary uppercase tracking-wider">13. Mavzu bo&apos;yicha yakuniy test</div>
                 <h4 className="text-lg font-bold text-foreground mt-1">Bilimingizni 10 ta savolda sinab ko&apos;ring</h4>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  Bitta tanlov, ko&apos;p tanlov, moslashtirish, ketma-ketlik va vaziyatli testlar orqali natijangizni XP ga aylantiring.
+                  Bitta tanlov, ko&apos;p tanlov, moslashtirish, ketma-ketlik va vaziyatli testlar orqali bilimingizni mustahkamlang.
                 </p>
               </div>
               <Button onClick={() => setTab("quiz")} className="w-full gap-2">
@@ -704,9 +800,9 @@ export function LessonWorkspacePage({
             </div>
           </div>
 
-          {/* 14, 15, 16: Reinforcement Questions, Conclusion & Textbook Sources */}
+          {/* 14 & 15: Reinforcement Questions + Error Analysis */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4 print-section">
-            <div className="text-xs font-semibold text-primary uppercase tracking-wider">14. Mustahkamlash savollari</div>
+            <div className="text-xs font-semibold text-primary uppercase tracking-wider">12. Mustahkamlash savollari</div>
             <div className="space-y-2.5">
               {c.reinforcementQuestions.map((rq, idx) => (
                 <details key={idx} className="rounded-lg border border-border bg-background/60 p-3">
@@ -719,13 +815,30 @@ export function LessonWorkspacePage({
             </div>
           </div>
 
+          {c.errorAnalysis && c.errorAnalysis.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-5 space-y-3 print-section">
+              <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                13. Xatolar tahlili (Ko&apos;p uchraydigan yanglishishlar)
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {c.errorAnalysis.map((ea, idx) => (
+                  <div key={idx} className="rounded-lg border border-border bg-background/60 p-3.5 space-y-1.5 text-xs">
+                    <div className="text-red-300 font-medium">Xato tushuncha: {ea.misconception}</div>
+                    <div className="text-emerald font-medium">To&apos;g&apos;ri yechim: {ea.correction}</div>
+                    <div className="text-[11px] text-muted-foreground">Huquqiy asos: {ea.legalBasis}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-card p-5 print-section">
-              <div className="text-xs font-semibold text-emerald uppercase tracking-wider mb-2">15. Dars xulosasi</div>
+              <div className="text-xs font-semibold text-emerald uppercase tracking-wider mb-2">14. Dars xulosasi</div>
               <p className="text-sm text-foreground/90 leading-relaxed">{c.conclusion}</p>
             </div>
             <div className="rounded-xl border border-border bg-card p-5 print-section">
-              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">16. Foydalanilgan darslik manbalari</div>
+              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-2">15. Foydalanilgan darslik manbalari</div>
               <ul className="space-y-2 text-xs text-muted-foreground">
                 {c.sources.map((src, i) => (
                   <li key={i}>
@@ -735,6 +848,45 @@ export function LessonWorkspacePage({
               </ul>
             </div>
           </div>
+
+          {c.selfAssessment && c.selfAssessment.length > 0 && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3 print-section">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-primary uppercase tracking-wider">
+                  16. O&apos;z bilimini baholash
+                </div>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {Object.values(selfChecks).filter(Boolean).length} / {c.selfAssessment.length} bajarildi
+                </span>
+              </div>
+              <div className="space-y-2">
+                {c.selfAssessment.map((item, idx) => {
+                  const checked = Boolean(selfChecks[idx]);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelfChecks((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                      className={`w-full rounded-lg border px-3.5 py-2.5 text-left text-xs sm:text-sm flex items-center gap-3 transition-colors cursor-pointer ${
+                        checked
+                          ? "border-primary bg-primary/15 text-foreground"
+                          : "border-border bg-background/70 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-4 h-4 rounded border flex items-center justify-center text-[11px] shrink-0 ${
+                          checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                        }`}
+                      >
+                        {checked ? "✓" : ""}
+                      </span>
+                      <span>{item}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

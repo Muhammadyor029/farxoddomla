@@ -5,10 +5,28 @@ interface ThemeContextValue {
   theme: ThemeMode;
   toggleTheme: () => void;
   setTheme: (mode: ThemeMode) => void;
+  reducedMotion: boolean;
+  toggleReducedMotion: () => void;
+  setReducedMotion: (enabled: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = "huquq_olami_theme";
+const MOTION_KEY = "huquq_olami_reduced_motion";
+
+export function resolveInitialReducedMotion(): boolean {
+  try {
+    const saved = localStorage.getItem(MOTION_KEY);
+    if (saved === "true") return true;
+    if (saved === "false") return false;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
@@ -21,6 +39,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return "night";
   });
 
+  const [reducedMotion, setReducedMotionState] = useState<boolean>(() => resolveInitialReducedMotion());
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -30,11 +50,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.dataset.reducedMotion = reducedMotion ? "true" : "false";
+    try {
+      localStorage.setItem(MOTION_KEY, reducedMotion ? "true" : "false");
+    } catch {
+      // ignore
+    }
+  }, [reducedMotion]);
+
   const setTheme = (mode: ThemeMode) => setThemeState(mode);
   const toggleTheme = () => setThemeState((prev) => (prev === "night" ? "day" : "night"));
+  const setReducedMotion = (enabled: boolean) => setReducedMotionState(enabled);
+  const toggleReducedMotion = () => setReducedMotionState((prev) => !prev);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, toggleTheme, setTheme, reducedMotion, toggleReducedMotion, setReducedMotion }}
+    >
       {children}
     </ThemeContext.Provider>
   );

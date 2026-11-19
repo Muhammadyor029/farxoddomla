@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { GameDefinition, GradeInfo } from "../shared/types";
 import { apiRequest } from "./lib/api";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -8,49 +8,18 @@ import { Navbar, type RouteKey } from "./components/Navbar";
 import { AuthModal } from "./components/AuthModal";
 import { LegalAIAssistant } from "./components/ai/LegalAIAssistant";
 import { HomePage } from "./pages/HomePage";
-
-const GradesPage = lazy(() =>
-  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.GradesPage }))
-);
-const AllTopicsPage = lazy(() =>
-  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.AllTopicsPage }))
-);
-const LessonWorkspacePage = lazy(() =>
-  import("./pages/GradesAndTopicsPages").then((m) => ({ default: m.LessonWorkspacePage }))
-);
-const GamesPage = lazy(() =>
-  import("./pages/LearningToolsPages").then((m) => ({ default: m.GamesPage }))
-);
-const InteractiveLessonsPage = lazy(() =>
-  import("./pages/LearningToolsPages").then((m) => ({ default: m.InteractiveLessonsPage }))
-);
-const PresentationsLibraryPage = lazy(() =>
-  import("./pages/LearningToolsPages").then((m) => ({ default: m.PresentationsLibraryPage }))
-);
-const TestCenterPage = lazy(() =>
-  import("./pages/LearningToolsPages").then((m) => ({ default: m.TestCenterPage }))
-);
-const GlossaryPage = lazy(() =>
-  import("./pages/ReferencePages").then((m) => ({ default: m.GlossaryPage }))
-);
-const LegislationPage = lazy(() =>
-  import("./pages/ReferencePages").then((m) => ({ default: m.LegislationPage }))
-);
-const ScenariosPage = lazy(() =>
-  import("./pages/ReferencePages").then((m) => ({ default: m.ScenariosPage }))
-);
-const AdminPanelPage = lazy(() =>
-  import("./pages/CabinetsPages").then((m) => ({ default: m.AdminPanelPage }))
-);
-const StudentCabinetPage = lazy(() =>
-  import("./pages/CabinetsPages").then((m) => ({ default: m.StudentCabinetPage }))
-);
-const TeacherCabinetPage = lazy(() =>
-  import("./pages/CabinetsPages").then((m) => ({ default: m.TeacherCabinetPage }))
-);
+import { AllTopicsPage, GradesPage, LessonWorkspacePage } from "./pages/GradesAndTopicsPages";
+import {
+  GamesPage,
+  InteractiveLessonsPage,
+  PresentationsLibraryPage,
+  TestCenterPage,
+} from "./pages/LearningToolsPages";
+import { GlossaryPage, LegislationPage, ScenariosPage } from "./pages/ReferencePages";
+import { AdminPanelPage, StudentCabinetPage, TeacherCabinetPage } from "./pages/CabinetsPages";
 
 function HuquqOlamiShell() {
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const [route, setRoute] = useState<RouteKey>("home");
   const [selectedGrade, setSelectedGrade] = useState<number>(8);
   const [selectedLessonId, setSelectedLessonId] = useState<number>(8001);
@@ -58,7 +27,7 @@ function HuquqOlamiShell() {
 
   const [grades, setGrades] = useState<GradeInfo[]>([]);
   const [games, setGames] = useState<GameDefinition[]>([]);
-  const [totalLessons, setTotalLessons] = useState<number>(82);
+  const [totalLessons, setTotalLessons] = useState<number>(114);
 
   useEffect(() => {
     apiRequest<{ grades?: GradeInfo[] }>("/api/grades")
@@ -97,12 +66,11 @@ function HuquqOlamiShell() {
   return (
     <div className="relative min-h-screen text-foreground flex flex-col">
       {/* Global interactive 3D background across all routes */}
-      <GlobalSplineBackdrop theme={theme} dimmed={route !== "home"} />
+      <GlobalSplineBackdrop theme={theme} dimmed={route !== "home"} reducedMotion={reducedMotion} />
 
       <Navbar activeRoute={route} onNavigate={handleNavigate} onOpenAuth={() => setAuthOpen(true)} />
 
       <main className={`relative z-10 flex-1 ${route === "home" ? "pointer-events-none" : ""}`}>
-        <Suspense fallback={<div className="min-h-[60vh]" />}>
         {route === "home" && (
           <HomePage
             grades={grades}
@@ -130,23 +98,29 @@ function HuquqOlamiShell() {
             onOpenAuth={() => setAuthOpen(true)}
           />
         )}
-        {route === "presentations" && <PresentationsLibraryPage />}
+        {route === "presentations" && <PresentationsLibraryPage onOpenAuth={() => setAuthOpen(true)} />}
         {route === "interactive" && <InteractiveLessonsPage onSelectLesson={handleSelectLesson} />}
         {route === "games" && <GamesPage games={games} />}
         {route === "tests" && <TestCenterPage />}
-        {route === "scenarios" && <ScenariosPage />}
-        {route === "glossary" && <GlossaryPage />}
-        {route === "legislation" && <LegislationPage />}
+        {route === "scenarios" && <ScenariosPage onOpenAuth={() => setAuthOpen(true)} />}
+        {route === "glossary" && <GlossaryPage onOpenAuth={() => setAuthOpen(true)} />}
+        {route === "legislation" && <LegislationPage onOpenAuth={() => setAuthOpen(true)} />}
         {route === "student" && (
           <StudentCabinetPage onOpenAuth={() => setAuthOpen(true)} onSelectLesson={handleSelectLesson} />
         )}
         {route === "teacher" && <TeacherCabinetPage onOpenAuth={() => setAuthOpen(true)} />}
         {route === "admin" && <AdminPanelPage onOpenAuth={() => setAuthOpen(true)} />}
-        </Suspense>
       </main>
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       {route !== "lesson" && <LegalAIAssistant />}
+
+      <div
+        className="no-print fixed bottom-1.5 left-3 z-10 pointer-events-none select-none text-[10px] tracking-wide text-foreground/20"
+        aria-hidden="true"
+      >
+        Rakhmanaliyev tomonidan yaratilgan
+      </div>
     </div>
   );
 }

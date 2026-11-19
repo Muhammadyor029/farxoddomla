@@ -81,7 +81,7 @@ export function HomePage({ grades, totalLessons, onNavigate, onOpenAuth }: HomeP
       </section>
 
       {/* BELOW THE FOLD: Dimmed translucent section over moving 3D background */}
-      <div className="pointer-events-auto bg-black/70 backdrop-blur-[2px] border-t border-border/60">
+      <div className="pointer-events-auto bg-black/78 border-t border-border/60">
         <section id="sinflar" className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-16 py-16 space-y-8">
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
             <div>
@@ -197,7 +197,7 @@ export function HomePage({ grades, totalLessons, onNavigate, onOpenAuth }: HomeP
                 route: "student" as RouteKey,
                 icon: GraduationCap,
                 title: "Shaxsiy kabinet",
-                desc: "XP reytingi, natijalar, yutuqlar va shaxsiy profil.",
+                desc: "Yakunlangan darslar, natijalar, yutuqlar va shaxsiy profil.",
               },
             ].map((mod) => {
               const Icon = mod.icon;

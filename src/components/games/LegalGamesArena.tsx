@@ -27,6 +27,7 @@ import {
   Eraser,
   Eye,
   Gavel,
+  BookmarkCheck,
 } from "lucide-react";
 import type { GameDefinition, GameType } from "../../../shared/types";
 import { apiRequest } from "../../lib/api";
@@ -385,7 +386,7 @@ export function LegalGamesArena({
       playGameSfx("victory", soundEnabled);
       if (!activeGame) return;
       try {
-        const res = await apiRequest<{ attempt: { xpEarned: number } }>("/api/game-attempts", {
+        await apiRequest<{ attempt?: { id?: number } }>("/api/game-attempts", {
           method: "POST",
           body: JSON.stringify({
             gameSlug: activeGame.slug,
@@ -396,10 +397,10 @@ export function LegalGamesArena({
             maxScore,
           }),
         });
-        setSavedMsg(`Natija saqlandi! +${res.attempt.xpEarned} XP qo'shildi.`);
+        setSavedMsg("Natija saqlandi!");
         onScoreSaved?.();
       } catch {
-        setSavedMsg("O'yin yakunlandi! Tizimga kirsangiz XP saqlanadi.");
+        setSavedMsg("O'yin yakunlandi! Tizimga kirsangiz natija saqlanadi.");
       }
     },
     [activeGame, activeGrade, lessonId, onScoreSaved, soundEnabled]
@@ -728,7 +729,7 @@ export function LegalGamesArena({
     <div className="space-y-6">
       {/* Grade Filter Bar */}
       {onGradeChange && (
-        <div className="rounded-2xl border border-border bg-card/85 backdrop-blur-sm p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="rounded-2xl border border-border bg-card/95 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-0.5">
             <div className="text-xs font-semibold text-primary uppercase tracking-wider">
               {activeGrade}-sinf interaktiv o&apos;yinlar bazasi
@@ -790,7 +791,7 @@ export function LegalGamesArena({
                 >
                   <IconComp className="w-4 h-4" />
                 </div>
-                <span className="text-[11px] font-semibold text-emerald tabular-nums">+{gm.xpReward} XP</span>
+                <BookmarkCheck className="w-4 h-4 text-emerald" aria-hidden="true" />
               </div>
               <div className="text-xs sm:text-sm font-bold text-foreground line-clamp-1">
                 {idx + 1}. {gm.title}
@@ -812,7 +813,7 @@ export function LegalGamesArena({
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22 }}
-          className="rounded-2xl border border-border bg-card/95 backdrop-blur-md p-5 sm:p-8 space-y-5 shadow-[0_14px_45px_rgba(0,0,0,0.35)]"
+          className="rounded-2xl border border-border bg-card/95 p-5 sm:p-8 space-y-5 shadow-[0_14px_45px_rgba(0,0,0,0.35)]"
         >
           {/* Arena Header HUD */}
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">

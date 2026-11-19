@@ -10,11 +10,11 @@ export const GRADE_11_INFO: GradeInfo = {
     "2025–2026-o'quv yili uchun yangi 11-sinf darsligi asosida mehnat, ma'muriy, jinoiy-protsessual va ekologik huquq sohalarini chuqur o'rgatuvchi kurs.",
   textbookTitle: "Davlat va huquq asoslari. 11-sinf darsligi (2025–2026)",
   textbookYear: "2025",
-  textbookAuthors: "Akmal Sodikov, Nargiza Ismatova, Javoxir Bobojonov",
+  textbookAuthors: "Akmal Sodikov, Farhodjon Abdulleyav, Javoxir Bobojonov",
   pdfPath: "/assets/aistudio/11-sinf_Davlat_va_huquq_asoslari_2025-2026_kitobi_db8c0e25.pdf",
   totalPages: 128,
   chaptersCount: 4,
-  lessonsCount: 25,
+  lessonsCount: 28,
 };
 
 export const GRADE_11_CHAPTERS: ChapterInfo[] = [
@@ -37,7 +37,6 @@ export const GRADE_11_CHAPTERS: ChapterInfo[] = [
     pageRange: "42–63-betlar",
   },
   {
-    lessonNumberLabel: undefined as never,
     id: 1103,
     gradeNumber: 11,
     chapterNumber: 3,

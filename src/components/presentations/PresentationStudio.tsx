@@ -120,8 +120,8 @@ export function PresentationStudio({ deck: initialDeck, onDeckUpdated }: Present
   }
 
   async function saveChanges() {
-    if (!user) {
-      setSaveMessage("Saqlash uchun tizimga kiring (O'qituvchi yoki O'quvchi).");
+    if (!user || (user.role !== "admin" && user.role !== "teacher")) {
+      setSaveMessage("Slaydlarni bazaga saqlash faqat administrator/o'qituvchi uchun. Hozirgi tahrirni PDF/Chop etish orqali saqlashingiz mumkin.");
       return;
     }
     setSaving(true);

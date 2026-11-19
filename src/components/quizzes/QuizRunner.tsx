@@ -30,7 +30,6 @@ interface QuizResult {
   correctCount: number;
   totalQuestions: number;
   recommendations: string[];
-  xpEarned: number;
   breakdown: Array<{ questionId: string; prompt: string; isCorrect: boolean; explanation: string }>;
 }
 
@@ -178,9 +177,9 @@ export function QuizRunner({ quiz, onAttemptSaved }: QuizRunnerProps) {
               <span className="flex items-center gap-1 tabular-nums text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" /> {formatClock(result.elapsedSeconds)}
               </span>
-              {result.xpEarned > 0 && (
-                <span className="font-bold text-emerald tabular-nums">+{result.xpEarned} XP</span>
-              )}
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Yakunlandi
+              </span>
             </div>
           </div>
 

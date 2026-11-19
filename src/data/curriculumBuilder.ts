@@ -14,6 +14,7 @@ import { GRADE_8_CHAPTERS, GRADE_8_INFO, GRADE_8_LESSONS, type LessonSeedSpec } 
 import { GRADE_9_CHAPTERS, GRADE_9_INFO, GRADE_9_LESSONS } from "./grade9";
 import { GRADE_10_CHAPTERS, GRADE_10_INFO, GRADE_10_LESSONS } from "./grade10";
 import { GRADE_11_CHAPTERS, GRADE_11_INFO, GRADE_11_LESSONS } from "./grade11";
+import { ALL_LESSON_SPLITS, applyLessonSplits } from "./lessonSplits";
 
 export const ALL_GRADES: GradeInfo[] = [GRADE_8_INFO, GRADE_9_INFO, GRADE_10_INFO, GRADE_11_INFO];
 
@@ -190,7 +191,7 @@ function buildLessonContent16(
       {
         id: `task-${quizId}-2`,
         type: "classification",
-        prompt: "Ushbu mavzuga tegishli asosiy huquqiy manba yoki tamoyilni tanlang:",
+        prompt: `"${spec.title}" mavzusiga tegishli asosiy huquqiy manba yoki tamoyilni tanlang:`,
         items: [
           spec.legalArticles[0] || "O'zbekiston Respublikasi Konstitutsiyasi",
           spec.keyTerms[0]?.term || spec.title,
@@ -265,6 +266,24 @@ function buildLessonContent16(
         pages: spec.legalArticles.join("; "),
         factNote: "O'zbekiston Respublikasi qonunchilik hujjatlariga havola.",
       },
+    ],
+    errorAnalysis: [
+      {
+        misconception: `"${spec.title}" mavzusini faqat yodlash uchun mo'ljallangan nazariya deb hisoblash.`,
+        correction: spec.plainExplanation,
+        legalBasis: spec.legalArticles.join(", "),
+      },
+      {
+        misconception: `"${spec.keyTerms[0]?.term || spec.title}" va "${spec.keyTerms[1]?.term || spec.keyTerms[0]?.term || "huquq normasi"}" tushunchalarini aralashtirish.`,
+        correction: `${spec.keyTerms[0]?.term || spec.title}: ${spec.keyTerms[0]?.shortDef || spec.summary} Asosiy huquqiy yechim: ${spec.legalCase.legalResolution}`,
+        legalBasis: spec.legalCase.legalBasis,
+      },
+    ],
+    selfAssessment: [
+      `"${spec.title}" mavzusining maqsadini o'z so'zim bilan tushuntira olaman.`,
+      `${spec.keyTerms[0]?.term || spec.title} tushunchasini hayotiy misol bilan bog'lay olaman.`,
+      `${spec.legalArticles[0] || "O'zbekiston Respublikasi Konstitutsiyasi"} asosida qonuniy yechim topa olaman.`,
+      `${spec.legalCase.caseTitle} vaziyatida buzilgan huquqni aniqlay olaman.`,
     ],
   };
 }
@@ -416,7 +435,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-1`,
       type: "single",
-      prompt: `"${mainTerm.term}" tushunchasining to'g'ri ta'rifini toping:`,
+      prompt: `"${spec.title}" mavzusidagi "${mainTerm.term}" tushunchasining to'g'ri ta'rifini toping:`,
       options: [
         mainTerm.shortDef,
         "Faqat xalqaro tashkilotlar tomonidan chiqariladigan norasmiy tavsiya.",
@@ -430,7 +449,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-2`,
       type: "true_false",
-      prompt: `To'g'rimi yoki noto'g'ri? "${spec.textbookFacts[0] || spec.summary}"`,
+      prompt: `To'g'rimi yoki noto'g'ri? "${spec.title}": ${spec.textbookFacts[0] || spec.summary}`,
       options: ["To'g'ri", "Noto'g'ri"],
       correctAnswer: 0,
       explanation: `Bu qoida ${gradeNum}-sinf darsligining ${spec.pageNumber}-betida tasdiqlangan.`,
@@ -439,7 +458,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-3`,
       type: "case",
-      prompt: `Huquqiy vaziyat: ${spec.legalCase.facts} Savol: ${spec.legalCase.question}`,
+      prompt: `Huquqiy vaziyat (${spec.title}): ${spec.legalCase.facts} Savol: ${spec.legalCase.question}`,
       options: [
         spec.legalCase.legalResolution,
         "Qonunchilik bu holatni tartibga solmaydi.",
@@ -481,7 +500,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-6`,
       type: "matching",
-      prompt: "Quyidagi tushuncha va uning mazmunini moslashtiring:",
+      prompt: `"${spec.title}" mavzusidagi tushuncha va uning mazmunini moslashtiring:`,
       options: [mainTerm.shortDef, secondTerm.shortDef, spec.lifeExample.takeaway],
       matchPairs: [
         { left: mainTerm.term, right: mainTerm.shortDef },
@@ -499,7 +518,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-7`,
       type: "ordering",
-      prompt: `Sxemadagi bosqichlarni to'g'ri mantiqiy ketma-ketlikda joylashtiring (${diagram.title}):`,
+      prompt: `Sxemadagi bosqichlarni to'g'ri mantiqiy ketma-ketlikda joylashtiring (${spec.title} — ${diagram.title}):`,
       options: diagram.nodes.slice(0, 3).map((n) => n.label),
       correctAnswer: diagram.nodes.slice(0, 3).map((n) => n.label),
       explanation: "Huquqiy jarayon va iyerarxiya yuqoridan pastga yoki boshlanishidan natijagacha qat'iy tartibda kechadi.",
@@ -509,7 +528,7 @@ function buildLessonQuiz(
       id: `q-${quizId}-8`,
       type: "visual",
       diagramKind: spec.diagramKind,
-      prompt: `Vizual sxemaga qarang: "${diagram.nodes[0]?.label}" nimani anglatadi?`,
+      prompt: `Vizual sxemaga qarang: "${diagram.nodes[0]?.label}" (${spec.title}) nimani anglatadi?`,
       options: [
         diagram.nodes[0]?.detail || spec.summary,
         "Hech qanday huquqiy ahamiyati yo'q",
@@ -523,7 +542,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-9`,
       type: "true_false",
-      prompt: `To'g'rimi yoki noto'g'ri? "Huquqiy vaziyatda qonuniy hujjatlar va moddalarni bilish shaxs huquqini himoya qilishda yordam bermaydi."`,
+      prompt: `To'g'rimi yoki noto'g'ri? "${spec.title} mavzusida qonuniy hujjatlar va moddalarni bilish shaxs huquqini himoya qilishda yordam bermaydi."`,
       options: ["To'g'ri", "Noto'g'ri"],
       correctAnswer: 1,
       explanation: "Noto'g'ri! Qonuniy hujjatlarni bilish o'z huquqingizni sud va vakolatli organlarda himoya qilishning asosiy vositasidir.",
@@ -532,7 +551,7 @@ function buildLessonQuiz(
     {
       id: `q-${quizId}-10`,
       type: "single",
-      prompt: `"${spec.lifeExample.title}" hayotiy misolidan qanday xulosa chiqadi?`,
+      prompt: `"${spec.lifeExample.title}" hayotiy misolidan (${spec.title}) qanday xulosa chiqadi?`,
       options: [
         spec.lifeExample.takeaway,
         "Qoidalar faqat nazariya uchun yoziladi",
@@ -598,10 +617,10 @@ function compileGrade(
   return { lessons, presentations, quizzes };
 }
 
-const compiled8 = compileGrade(8, GRADE_8_CHAPTERS, GRADE_8_LESSONS, 8000);
-const compiled9 = compileGrade(9, GRADE_9_CHAPTERS, GRADE_9_LESSONS, 9000);
-const compiled10 = compileGrade(10, GRADE_10_CHAPTERS, GRADE_10_LESSONS, 10000);
-const compiled11 = compileGrade(11, GRADE_11_CHAPTERS, GRADE_11_LESSONS, 11000);
+const compiled8 = compileGrade(8, GRADE_8_CHAPTERS, applyLessonSplits(GRADE_8_LESSONS, ALL_LESSON_SPLITS[8] ?? {}), 8000);
+const compiled9 = compileGrade(9, GRADE_9_CHAPTERS, applyLessonSplits(GRADE_9_LESSONS, ALL_LESSON_SPLITS[9]), 9000);
+const compiled10 = compileGrade(10, GRADE_10_CHAPTERS, applyLessonSplits(GRADE_10_LESSONS, ALL_LESSON_SPLITS[10]), 10000);
+const compiled11 = compileGrade(11, GRADE_11_CHAPTERS, applyLessonSplits(GRADE_11_LESSONS, ALL_LESSON_SPLITS[11]), 11000);
 
 export const ALL_LESSONS: LessonInfo[] = [
   ...compiled8.lessons,

@@ -1,4 +1,6 @@
 import { Lock } from "lucide-react";
+import type { AccessRequestStatus, AccessResourceType } from "../../shared/types";
+import { AccessRequestButton } from "./AccessRequestButton";
 import { Button } from "./ui/button";
 
 export function LockedTopicCard({ onClick }: { onClick: () => void }) {
@@ -7,7 +9,7 @@ export function LockedTopicCard({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Qulflangan mavzu"
-      className="group relative overflow-hidden rounded-sm border border-white/10 bg-[#0d1014]/85 backdrop-blur-md min-h-[164px] p-5 text-left transition-all cursor-pointer select-none hover:border-primary/50 hover:bg-[#12161c]/90 active:scale-[0.99]"
+      className="group relative overflow-hidden rounded-sm border border-white/10 bg-[#0d1014]/92 min-h-[164px] p-5 text-left transition-colors cursor-pointer select-none hover:border-primary/50 hover:bg-[#12161c]/95 active:scale-[0.99]"
     >
       {/* Architectural rectangular door frame & recessed panels echoing the 3D cube backdrop */}
       <div className="pointer-events-none absolute inset-2 rounded-[2px] border border-white/[0.06]" />
@@ -39,14 +41,20 @@ export function LockedTopicsVaultScreen({
   onOpenAuth,
   onNavigateGames,
   onNavigateTests,
+  accessRequest,
 }: {
   onOpenAuth: () => void;
   onNavigateGames?: () => void;
   onNavigateTests?: () => void;
+  accessRequest?: {
+    resourceType: AccessResourceType;
+    resourceId: number;
+    requestStatus?: AccessRequestStatus;
+  };
 }) {
   return (
     <div className="max-w-3xl mx-auto px-4 pt-28 pb-16">
-      <div className="relative overflow-hidden rounded-sm border border-white/15 bg-[#0c0f13]/90 backdrop-blur-xl p-8 sm:p-12 text-center shadow-2xl">
+      <div className="relative overflow-hidden rounded-sm border border-white/15 bg-[#0c0f13]/95 p-8 sm:p-12 text-center shadow-2xl">
         {/* Double-door geometric seams */}
         <div className="pointer-events-none absolute inset-3 rounded-[2px] border border-white/[0.06]" />
         <div className="pointer-events-none absolute top-3 bottom-3 left-1/2 -translate-x-1/2 w-px bg-white/[0.06]" />
@@ -79,6 +87,14 @@ export function LockedTopicsVaultScreen({
               <Button variant="secondary" onClick={onNavigateTests} className="rounded-sm text-xs">
                 Testlarga o&apos;tish
               </Button>
+            )}
+            {accessRequest && (
+              <AccessRequestButton
+                resourceType={accessRequest.resourceType}
+                resourceId={accessRequest.resourceId}
+                requestStatus={accessRequest.requestStatus}
+                onOpenAuth={onOpenAuth}
+              />
             )}
           </div>
         </div>

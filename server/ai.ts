@@ -71,12 +71,16 @@ export async function runLegalAiTask(
         }
       | undefined;
     if (lessonRow) {
-      const parsed = JSON.parse(lessonRow.content_json);
-      lessonContext = `
+      try {
+        const parsed = JSON.parse(lessonRow.content_json);
+        lessonContext = `
 Kontekst dars: ${lessonRow.grade_number}-sinf, ${lessonRow.lesson_number_label} — "${lessonRow.title}" (${lessonRow.page_number}-bet).
 Asosiy faktlar: ${(parsed.theorySections || []).map((s: { textbookFact: string }) => s.textbookFact).join(" | ")}
 Qonuniy manbalar: ${(parsed.sources || []).map((s: { pages: string }) => s.pages).join(", ")}
-      `.trim();
+        `.trim();
+      } catch {
+        lessonContext = `Kontekst dars: ${lessonRow.grade_number}-sinf, ${lessonRow.lesson_number_label} — "${lessonRow.title}" (${lessonRow.page_number}-bet).`;
+      }
     }
   }
 
@@ -92,20 +96,26 @@ Qonuniy manbalar: ${(parsed.sources || []).map((s: { pages: string }) => s.pages
       "Mavzu yuzasidan 5 ta ixcham prezentatsiya slaydi tuzilmasini (Sarlavha + 3 ta qisqa band + vizual sxema g'oyasi) yozib bering.",
   };
 
+  const strictRule = config.strictGrounding
+    ? "3. QAT'IY MANBA NAZORATI: Agar savol bo'yicha aniq modda raqami yoki darslik fakti ishonchli tarzda ma'lum bo'lmasa, hech qachon taxminiy modda raqami yozmang — 'Bu savol bo'yicha aniq modda raqami yoki darslik iqtibosi haqida ishonchli ma'lumot topilmadi' deb ochiq ayting."
+    : "3. Darslikdagi umumiy huquqiy prinsiplarga tayaning va modda raqamini o'ylab topmang.";
+
   const systemInstruction = `
 Siz "HUQUQ OLAMI" platformasining O'zbekiston umumta'lim maktablari (8–11-sinf, "Davlat va huquq asoslari") bo'yicha sun'iy intellekt o'qituvchisisiz.
 Qoidalar:
 1. Faqat O'zbekiston Respublikasi Konstitutsiyasi (2023 yangi tahrir), Mehnat, Oila, Fuqarolik, Jinoyat, Ma'muriy javobgarlik kodekslari va 8–11-sinf darsliklariga tayaning.
-2. Hech qachon mavjud bo'lmagan qonun moddasini o'ylab topmang (to'qimang). Agar modda raqamiga 100% ishonchingiz komil bo'lmasa, umumiy huquqiy prinsipni ayting.
-3. Javob ohangi: ${config.tone}.
-4. Vazifa: ${taskInstructionMap[params.task]}
-5. Faqat o'zbek tilida (lotin alifbosida) javob yozing.
+2. Hech qachon mavjud bo'lmagan qonun moddasini yoki qonun hujjatini o'ylab topmang (to'qimang).
+${strictRule}
+4. Javob ohangi: ${config.tone}.
+5. Vazifa: ${taskInstructionMap[params.task]}
+6. Faqat o'zbek tilida (lotin alifbosida) javob yozing.
   `.trim();
 
+  const trimmedPrompt = params.prompt.trim().slice(0, 2000);
   const fullPrompt = [
     params.gradeNumber ? `Sinf: ${params.gradeNumber}-sinf` : "",
     lessonContext,
-    `So'rov: ${params.prompt}`,
+    `So'rov: ${trimmedPrompt}`,
   ]
     .filter(Boolean)
     .join("\n\n");

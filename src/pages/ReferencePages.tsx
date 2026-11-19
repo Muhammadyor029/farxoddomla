@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Scale, BookMarked, Landmark, Search, Printer, FileDown, CheckCircle2, XCircle } from "lucide-react";
-import type { LegalScenario, LegalTerm, LegislationArticle, ScenarioCategory } from "../../shared/types";
+import type { AccessRequestStatus, LegalScenario, LegalTerm, LegislationArticle, ScenarioCategory } from "../../shared/types";
 import { apiRequest } from "../lib/api";
 import { exportGlossaryPdf, exportScenariosPdf } from "../lib/pdfExport";
+import { useAuth } from "../contexts/AuthContext";
+import { AccessRequestButton, type AccessListMeta } from "../components/AccessRequestButton";
 import { Button } from "../components/ui/button";
 
 const SCENARIO_CATEGORIES: Array<"all" | ScenarioCategory> = [
@@ -19,12 +21,15 @@ const SCENARIO_CATEGORIES: Array<"all" | ScenarioCategory> = [
 ];
 
 /* ==================== PRACTICAL SCENARIOS PAGE ==================== */
-export function ScenariosPage() {
+export function ScenariosPage({ onOpenAuth }: { onOpenAuth?: () => void }) {
+  const { user } = useAuth();
   const [category, setCategory] = useState<"all" | ScenarioCategory>("all");
   const [grade, setGrade] = useState<number>(0);
   const [scenarios, setScenarios] = useState<LegalScenario[]>([]);
   const [picked, setPicked] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<AccessRequestStatus>("none");
 
   useEffect(() => {
     let active = true;
@@ -32,9 +37,13 @@ export function ScenariosPage() {
     const params = new URLSearchParams();
     if (grade) params.set("grade", String(grade));
     if (category !== "all") params.set("category", category);
-    apiRequest<{ scenarios?: LegalScenario[] }>(`/api/scenarios?${params.toString()}`)
+    apiRequest<AccessListMeta & { scenarios?: LegalScenario[] }>(`/api/scenarios?${params.toString()}`)
       .then((res) => {
-        if (active) setScenarios(Array.isArray(res?.scenarios) ? res.scenarios : []);
+        if (active) {
+          setScenarios(Array.isArray(res?.scenarios) ? res.scenarios : []);
+          setLocked(Boolean(res?.locked));
+          setRequestStatus(res?.requestStatus || "none");
+        }
       })
       .catch(() => {
         if (active) setScenarios([]);
@@ -45,7 +54,7 @@ export function ScenariosPage() {
     return () => {
       active = false;
     };
-  }, [grade, category]);
+  }, [grade, category, user?.id]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-6">
@@ -56,7 +65,15 @@ export function ScenariosPage() {
           </span>
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground mt-1">Amaliy vaziyatlar (9 ta huquq sohasi)</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {locked && (
+            <AccessRequestButton
+              resourceType="scenarios"
+              resourceId={0}
+              requestStatus={requestStatus}
+              onOpenAuth={onOpenAuth}
+            />
+          )}
           <Button size="sm" variant="secondary" onClick={() => window.print()} className="gap-1.5 text-xs">
             <Printer className="w-3.5 h-3.5" /> Chop etish
           </Button>
@@ -97,6 +114,11 @@ export function ScenariosPage() {
         <div className="h-64 rounded-2xl border border-border bg-card/50 animate-pulse" />
       ) : (
         <div className="space-y-5">
+          {locked && (
+            <div className="rounded-xl border border-border bg-card p-6 text-center text-xs text-muted-foreground">
+              Bo&apos;lim qulflangan. Ruxsat olish uchun so&apos;rov yuboring.
+            </div>
+          )}
           {scenarios.map((sc) => {
             const chosenId = picked[sc.id];
             const chosenChoice = sc.choices.find((c) => c.id === chosenId);
@@ -161,11 +183,14 @@ export function ScenariosPage() {
 }
 
 /* ==================== GLOSSARY PAGE ==================== */
-export function GlossaryPage() {
+export function GlossaryPage({ onOpenAuth }: { onOpenAuth?: () => void }) {
+  const { user } = useAuth();
   const [grade, setGrade] = useState(0);
   const [q, setQ] = useState("");
   const [terms, setTerms] = useState<LegalTerm[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<AccessRequestStatus>("none");
 
   useEffect(() => {
     let active = true;
@@ -173,9 +198,13 @@ export function GlossaryPage() {
     const params = new URLSearchParams();
     if (grade) params.set("grade", String(grade));
     if (q.trim()) params.set("q", q.trim());
-    apiRequest<{ terms?: LegalTerm[] }>(`/api/glossary?${params.toString()}`)
+    apiRequest<AccessListMeta & { terms?: LegalTerm[] }>(`/api/glossary?${params.toString()}`)
       .then((res) => {
-        if (active) setTerms(Array.isArray(res?.terms) ? res.terms : []);
+        if (active) {
+          setTerms(Array.isArray(res?.terms) ? res.terms : []);
+          setLocked(Boolean(res?.locked));
+          setRequestStatus(res?.requestStatus || "none");
+        }
       })
       .catch(() => {
         if (active) setTerms([]);
@@ -186,7 +215,7 @@ export function GlossaryPage() {
     return () => {
       active = false;
     };
-  }, [grade, q]);
+  }, [grade, q, user?.id]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-24 pb-16 space-y-6">
@@ -197,7 +226,15 @@ export function GlossaryPage() {
           </span>
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground mt-1">Huquqiy lug&apos;at</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {locked && (
+            <AccessRequestButton
+              resourceType="glossary"
+              resourceId={0}
+              requestStatus={requestStatus}
+              onOpenAuth={onOpenAuth}
+            />
+          )}
           <Button size="sm" variant="secondary" onClick={() => window.print()} className="gap-1.5 text-xs">
             <Printer className="w-3.5 h-3.5" /> Chop etish
           </Button>
@@ -235,6 +272,11 @@ export function GlossaryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {locked && (
+            <div className="md:col-span-2 rounded-xl border border-border bg-card p-6 text-center text-xs text-muted-foreground">
+              Bo&apos;lim qulflangan. Ruxsat olish uchun so&apos;rov yuboring.
+            </div>
+          )}
           {terms.map((t) => (
             <div key={t.id} className="rounded-xl border border-border bg-card p-5 space-y-2 print-section">
               <div className="flex items-center justify-between gap-2">
@@ -256,19 +298,26 @@ export function GlossaryPage() {
 }
 
 /* ==================== UZBEKISTAN LEGISLATION EXPLORER ==================== */
-export function LegislationPage() {
+export function LegislationPage({ onOpenAuth }: { onOpenAuth?: () => void }) {
+  const { user } = useAuth();
   const [codeFilter, setCodeFilter] = useState("all");
   const [q, setQ] = useState("");
   const [articles, setArticles] = useState<LegislationArticle[]>([]);
+  const [locked, setLocked] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<AccessRequestStatus>("none");
 
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams();
     if (codeFilter !== "all") params.set("code", codeFilter);
     if (q.trim()) params.set("q", q.trim());
-    apiRequest<{ articles?: LegislationArticle[] }>(`/api/legislation?${params.toString()}`)
+    apiRequest<AccessListMeta & { articles?: LegislationArticle[] }>(`/api/legislation?${params.toString()}`)
       .then((res) => {
-        if (active) setArticles(Array.isArray(res?.articles) ? res.articles : []);
+        if (active) {
+          setArticles(Array.isArray(res?.articles) ? res.articles : []);
+          setLocked(Boolean(res?.locked));
+          setRequestStatus(res?.requestStatus || "none");
+        }
       })
       .catch(() => {
         if (active) setArticles([]);
@@ -276,7 +325,7 @@ export function LegislationPage() {
     return () => {
       active = false;
     };
-  }, [codeFilter, q]);
+  }, [codeFilter, q, user?.id]);
 
   const codeOptions = [
     "all",
@@ -297,9 +346,19 @@ export function LegislationPage() {
           </span>
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground mt-1">O&apos;zbekiston qonunchiligi</h1>
         </div>
-        <Button size="sm" variant="secondary" onClick={() => window.print()} className="gap-1.5 text-xs">
-          <Printer className="w-3.5 h-3.5" /> Chop etish
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {locked && (
+            <AccessRequestButton
+              resourceType="legislation"
+              resourceId={0}
+              requestStatus={requestStatus}
+              onOpenAuth={onOpenAuth}
+            />
+          )}
+          <Button size="sm" variant="secondary" onClick={() => window.print()} className="gap-1.5 text-xs">
+            <Printer className="w-3.5 h-3.5" /> Chop etish
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 no-print">
@@ -327,6 +386,11 @@ export function LegislationPage() {
       </div>
 
       <div className="space-y-4">
+        {locked && (
+          <div className="rounded-xl border border-border bg-card p-6 text-center text-xs text-muted-foreground">
+            Bo&apos;lim qulflangan. Ruxsat olish uchun so&apos;rov yuboring.
+          </div>
+        )}
         {articles.map((art) => (
           <div key={art.id} className="rounded-2xl border border-border bg-card p-6 space-y-2.5 print-section">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">

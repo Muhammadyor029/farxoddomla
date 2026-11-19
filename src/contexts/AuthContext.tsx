@@ -2,20 +2,28 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { isOwnerAccount, type UserAccount } from "../../shared/types";
 import { apiRequest, getAuthToken, setAuthToken } from "../lib/api";
 
+export interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  gradeNumber: number;
+  className?: string;
+  schoolName?: string;
+  role?: "student" | "teacher";
+}
+
+export interface RegisterResult {
+  user: UserAccount | null;
+  message?: string;
+}
+
 interface AuthContextValue {
   user: UserAccount | null;
   unlocked: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<UserAccount>;
-  register: (payload: {
-    fullName: string;
-    email: string;
-    password: string;
-    gradeNumber: number;
-    className?: string;
-    schoolName?: string;
-  }) => Promise<UserAccount>;
-  logout: () => void;
+  register: (payload: RegisterPayload) => Promise<RegisterResult>;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -57,24 +65,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data.user;
   };
 
-  const register = async (payload: {
-    fullName: string;
-    email: string;
-    password: string;
-    gradeNumber: number;
-    className?: string;
-    schoolName?: string;
-  }) => {
-    const data = await apiRequest<{ token: string; user: UserAccount }>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+  const register = async (payload: RegisterPayload): Promise<RegisterResult> => {
+    const data = await apiRequest<{ token?: string | null; user: UserAccount; message?: string }>(
+      "/api/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!data.token) {
+      return { user: null, message: data.message };
+    }
     setAuthToken(data.token);
     setUser(data.user);
-    return data.user;
+    return { user: data.user, message: data.message };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const token = getAuthToken();
+    if (token) {
+      await apiRequest("/api/auth/logout", { method: "POST" }).catch(() => {});
+    }
     setAuthToken(null);
     setUser(null);
   };
